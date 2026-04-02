@@ -26,6 +26,33 @@ type VocabularyFile = {
 
 const normalizeWord = (value: string) => value.trim().toLowerCase()
 
+const HIGH_FREQUENCY_TAGS = ['高频', 'high-frequency', 'high_frequency', 'highfreq', '核心']
+
+const parseTags = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string')
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string')
+      }
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
+const isHighFrequencyWord = (tags: unknown) =>
+  parseTags(tags).some((tag) => {
+    const normalizedTag = tag.trim().toLowerCase()
+    return HIGH_FREQUENCY_TAGS.some((keyword) => normalizedTag.includes(keyword.toLowerCase()))
+  })
+
 const parseWordId = (value: string) => {
   const parsed = Number.parseInt(value, 10)
   return Number.isNaN(parsed) ? null : parsed
@@ -77,7 +104,7 @@ router.get('/stats', authMiddleware, async (req: AuthRequest, res) => {
     const userId = req.userId!
     const now = new Date()
 
-    const [totalGroups, dueGroups] = await Promise.all([
+    const [totalGroups, dueGroups, allWords] = await Promise.all([
       prisma.word.groupBy({
         by: ['vocabSet'],
         where: { userId },
@@ -90,20 +117,38 @@ router.get('/stats', authMiddleware, async (req: AuthRequest, res) => {
           nextReview: { lte: now }
         },
         _count: { _all: true }
+      }),
+      prisma.word.findMany({
+        where: { userId },
+        select: {
+          vocabSet: true,
+          tags: true
+        }
       })
     ])
 
-    const stats = new Map<string, { total: number; due: number }>()
+    const stats = new Map<string, { total: number; due: number; highFrequency: number }>()
 
     totalGroups.forEach((group) => {
       const key = group.vocabSet || 'unassigned'
-      stats.set(key, { total: group._count._all, due: 0 })
+      stats.set(key, { total: group._count._all, due: 0, highFrequency: 0 })
     })
 
     dueGroups.forEach((group) => {
       const key = group.vocabSet || 'unassigned'
-      const current = stats.get(key) || { total: 0, due: 0 }
+      const current = stats.get(key) || { total: 0, due: 0, highFrequency: 0 }
       current.due = group._count._all
+      stats.set(key, current)
+    })
+
+    allWords.forEach((word) => {
+      if (!isHighFrequencyWord(word.tags)) {
+        return
+      }
+
+      const key = word.vocabSet || 'unassigned'
+      const current = stats.get(key) || { total: 0, due: 0, highFrequency: 0 }
+      current.highFrequency += 1
       stats.set(key, current)
     })
 
@@ -324,6 +369,8 @@ router.post('/import-batch', authMiddleware, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: '词库为空' })
     }
 
+    const highFrequencyCount = words.filter((item) => isHighFrequencyWord(item.tags)).length
+
     let createdCount = 0
     let updatedCount = 0
     let errorCount = 0
@@ -400,6 +447,7 @@ router.post('/import-batch', authMiddleware, async (req: AuthRequest, res) => {
       updatedCount,
       errorCount,
       total: words.length,
+      highFrequencyCount,
       vocabName: vocabData.name || vocabCode
     })
   } catch (error: any) {
