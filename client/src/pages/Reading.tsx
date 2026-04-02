@@ -61,7 +61,6 @@ const extractCandidateWords = (article: Article | null): CandidateWord[] => {
       if (candidates.length >= 12) return candidates
     }
   }
-
   return candidates
 }
 
@@ -74,6 +73,7 @@ export default function Reading() {
   const [addingWords, setAddingWords] = useState<Record<string, boolean>>({})
   const [addedWords, setAddedWords] = useState<Record<string, boolean>>({})
   const [favoriteSentences, setFavoriteSentences] = useState<FavoriteSentence[]>([])
+  const [retellDrafts, setRetellDrafts] = useState<Record<number, string>>({})
 
   useEffect(() => {
     void loadArticles()
@@ -144,6 +144,9 @@ export default function Reading() {
     setFavoriteSentences((prev) => [{ articleId: selectedArticle.id, articleTitle: selectedArticle.titleZh, sentence }, ...prev])
   }
 
+  const currentRetell = selectedArticle ? retellDrafts[selectedArticle.id] || '' : ''
+  const retellWordCount = currentRetell.trim() ? currentRetell.trim().split(/\s+/).length : 0
+
   return (
     <div className="min-h-screen bg-[#edf2f4]">
       <Sidebar />
@@ -153,7 +156,7 @@ export default function Reading() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h1 className="text-4xl font-bold text-[#2b2d42]">英语阅读</h1>
-                <p className="mt-3 max-w-3xl text-[#8d99ae]">整篇文章阅读、生词提取和句子收藏已经接通，阅读内容可以直接沉淀到复习素材里。</p>
+                <p className="mt-3 max-w-3xl text-[#8d99ae]">整篇阅读、生词提取、句子收藏和整篇复述已经接通，阅读后的沉淀动作更完整。</p>
               </div>
               <button onClick={importFullArticles} disabled={importing} className={`rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition ${importing ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] hover:scale-[1.02]'}`}>{importing ? '导入中...' : '导入整篇文章'}</button>
             </div>
@@ -164,7 +167,7 @@ export default function Reading() {
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-[#2b2d42]">句子收藏</h2>
-                  <p className="mt-2 text-sm text-[#8d99ae]">收藏的句子可作为复述、仿写和后续单词回顾的素材。</p>
+                  <p className="mt-2 text-sm text-[#8d99ae]">收藏句子可用于复述、仿写和重点表达积累。</p>
                 </div>
                 <div className="rounded-full bg-[#2b2d42] px-4 py-2 text-sm font-semibold text-white">{favoriteSentences.length} 句</div>
               </div>
@@ -217,9 +220,23 @@ export default function Reading() {
                   <button onClick={() => setSelectedArticle(null)} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f8f9fa] text-[#2b2d42]">X</button>
                 </div>
 
-                <div className="grid flex-1 gap-6 overflow-y-auto p-6 lg:grid-cols-[1fr,1fr,0.9fr] lg:p-8">
+                <div className="grid flex-1 gap-6 overflow-y-auto p-6 lg:grid-cols-[1fr,1fr,0.95fr] lg:p-8">
                   <div className="rounded-2xl bg-[#f8f9fa] p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">{selectedArticle.content}</div>
-                  <div className="rounded-2xl border border-[#ef233c]/20 bg-gradient-to-br from-[#ef233c]/5 to-transparent p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">{selectedArticle.contentZh || '暂无中文对照'}</div>
+                  <div className="space-y-6">
+                    <div className="rounded-2xl border border-[#ef233c]/20 bg-gradient-to-br from-[#ef233c]/5 to-transparent p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">{selectedArticle.contentZh || '暂无中文对照'}</div>
+                    <div className="rounded-2xl border border-[#e9ecef] bg-white p-6">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-[#2b2d42]">整篇复述</h3>
+                        <span className="rounded-full bg-[#2b2d42] px-3 py-1 text-sm font-semibold text-white">{retellWordCount} 词</span>
+                      </div>
+                      <textarea
+                        value={currentRetell}
+                        onChange={(event) => setRetellDrafts((prev) => ({ ...prev, [selectedArticle.id]: event.target.value }))}
+                        placeholder="用英文复述这篇文章的核心观点、结构和结论。"
+                        className="min-h-[220px] w-full rounded-2xl border border-[#d1d5db] p-4 outline-none transition focus:border-[#2b2d42]"
+                      />
+                    </div>
+                  </div>
 
                   <div className="space-y-6">
                     <div>

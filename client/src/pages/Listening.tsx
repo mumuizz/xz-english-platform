@@ -38,6 +38,13 @@ interface WrongQuestion {
   explanation: string
 }
 
+interface StudyRecord {
+  materialTitle: string
+  quizScore: string
+  dictationScore: string
+  createdAt: string
+}
+
 const levelConfig = {
   beginner: { label: '初级', color: '#10b981' },
   intermediate: { label: '中级', color: '#f59e0b' },
@@ -128,6 +135,7 @@ export default function Listening() {
   const [retryMode, setRetryMode] = useState(false)
   const [retryAnswers, setRetryAnswers] = useState<Record<string, string>>({})
   const [retrySubmitted, setRetrySubmitted] = useState(false)
+  const [studyRecords, setStudyRecords] = useState<StudyRecord[]>([])
   const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
@@ -179,6 +187,10 @@ export default function Listening() {
   const dictationScore = useMemo(() => dictationSegments.reduce((sum, s) => sum + (normalize(dictationAnswers[s.id] || '') === normalize(s.answer) ? 1 : 0), 0), [dictationAnswers, dictationSegments])
   const retryScore = useMemo(() => retryQuestions.reduce((sum, q) => sum + (retryAnswers[q.questionId] === q.correctAnswer ? 1 : 0), 0), [retryAnswers, retryQuestions])
 
+  const totalStudyCount = studyRecords.length
+  const averageQuizScore = totalStudyCount ? studyRecords.reduce((sum, item) => sum + Number(item.quizScore.split('/')[0]) / Number(item.quizScore.split('/')[1]), 0) / totalStudyCount : 0
+  const averageDictationScore = totalStudyCount ? studyRecords.reduce((sum, item) => sum + Number(item.dictationScore.split('/')[0]) / Number(item.dictationScore.split('/')[1]), 0) / totalStudyCount : 0
+
   const togglePlay = async () => {
     if (!audioRef.current) return
     if (isPlaying) {
@@ -220,6 +232,17 @@ export default function Listening() {
     })
   }
 
+  const saveStudyRecord = () => {
+    if (!selectedMaterial || !submitted || !dictationSubmitted) return
+    const record: StudyRecord = {
+      materialTitle: selectedMaterial.title,
+      quizScore: `${score}/${quizQuestions.length || 0}`,
+      dictationScore: `${dictationScore}/${dictationSegments.length || 0}`,
+      createdAt: new Date().toLocaleString('zh-CN')
+    }
+    setStudyRecords((prev) => [record, ...prev])
+  }
+
   return (
     <div className="min-h-screen bg-[#edf2f4]">
       <Sidebar />
@@ -229,31 +252,44 @@ export default function Listening() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h1 className="text-4xl font-bold text-[#2b2d42]">英语听力</h1>
-                <p className="mt-3 max-w-3xl text-[#8d99ae]">题目模式、听写模式、错题本已经就位，并新增了错题再练。</p>
+                <p className="mt-3 max-w-3xl text-[#8d99ae]">题目模式、听写模式、错题再练和学习记录已经接通，训练结果开始累计。</p>
               </div>
               <button onClick={importMaterials} disabled={importing} className={`rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition ${importing ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] hover:scale-[1.02]'}`}>{importing ? '导入中...' : '导入听力材料'}</button>
             </div>
           </header>
 
-          <section className="rounded-3xl bg-white p-6 shadow-md">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <div className="mb-3 text-sm font-semibold text-[#2b2d42]">场景筛选</div>
-                <div className="flex flex-wrap gap-3">{[{ key: 'all', label: '全部' }, { key: 'exam-focus', label: '自考导向' }, { key: 'easy-listening', label: '空闲磨耳朵' }].map((item) => <button key={item.key} onClick={() => setScene(item.key as SceneFilter)} className={`rounded-xl px-5 py-2.5 font-medium transition ${scene === item.key ? 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] text-white shadow-md' : 'bg-[#f8f9fa] text-[#2b2d42] hover:bg-[#e9ecef]'}`}>{item.label}</button>)}</div>
+          {studyRecords.length > 0 && (
+            <section className="rounded-3xl bg-white p-8 shadow-md">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-[#2b2d42]">学习记录</h2>
+                <p className="mt-2 text-sm text-[#8d99ae]">记录每次练习的题目得分和听写得分，用于后续统计。</p>
               </div>
-              <div>
-                <div className="mb-3 text-sm font-semibold text-[#2b2d42]">难度筛选</div>
-                <div className="flex flex-wrap gap-3">{[{ key: 'all', label: '全部' }, { key: 'beginner', label: '初级' }, { key: 'intermediate', label: '中级' }, { key: 'advanced', label: '高级' }].map((item) => <button key={item.key} onClick={() => setLevel(item.key as typeof level)} className={`rounded-xl px-5 py-2.5 font-medium transition ${level === item.key ? 'bg-gradient-to-r from-[#2b2d42] to-[#3f4564] text-white shadow-md' : 'bg-[#f8f9fa] text-[#2b2d42] hover:bg-[#e9ecef]'}`}>{item.label}</button>)}</div>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl bg-[#f8f9fa] p-5"><div className="text-sm text-[#8d99ae]">练习次数</div><div className="mt-2 text-3xl font-bold text-[#2b2d42]">{totalStudyCount}</div></div>
+                <div className="rounded-2xl bg-[#f8f9fa] p-5"><div className="text-sm text-[#8d99ae]">题目平均正确率</div><div className="mt-2 text-3xl font-bold text-[#2b2d42]">{Math.round(averageQuizScore * 100)}%</div></div>
+                <div className="rounded-2xl bg-[#f8f9fa] p-5"><div className="text-sm text-[#8d99ae]">听写平均正确率</div><div className="mt-2 text-3xl font-bold text-[#2b2d42]">{Math.round(averageDictationScore * 100)}%</div></div>
               </div>
-            </div>
-          </section>
+              <div className="mt-6 grid gap-4">
+                {studyRecords.map((record, index) => (
+                  <div key={index} className="rounded-2xl border border-[#e9ecef] bg-[#f8f9fa] p-5">
+                    <div className="font-semibold text-[#2b2d42]">{record.materialTitle}</div>
+                    <div className="mt-2 text-sm text-[#8d99ae]">{record.createdAt}</div>
+                    <div className="mt-3 flex gap-4 text-sm">
+                      <span className="rounded-full bg-white px-3 py-1 font-semibold text-[#2b2d42]">题目：{record.quizScore}</span>
+                      <span className="rounded-full bg-white px-3 py-1 font-semibold text-[#2b2d42]">听写：{record.dictationScore}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {wrongNotebook.length > 0 && (
             <section className="rounded-3xl bg-white p-8 shadow-md">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-[#2b2d42]">错题本</h2>
-                  <p className="mt-2 text-sm text-[#8d99ae]">错题会自动沉淀，支持集中再练。</p>
+                  <p className="mt-2 text-sm text-[#8d99ae]">错题自动沉淀，并支持再练。</p>
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => { setRetryMode((v) => !v); setRetryAnswers({}); setRetrySubmitted(false) }} className="rounded-2xl bg-[#2b2d42] px-5 py-3 font-semibold text-white">{retryMode ? '收起再练' : '错题再练'}</button>
@@ -277,7 +313,7 @@ export default function Listening() {
                             const selected = retryAnswers[item.questionId] === option
                             const correct = retrySubmitted && option === item.correctAnswer
                             const wrong = retrySubmitted && selected && option !== item.correctAnswer
-                            return <button key={option} onClick={() => setRetryAnswers((prev) => ({ ...prev, [item.questionId]: option }))} disabled={retrySubmitted} className={`block w-full rounded-xl border px-4 py-3 text-left text-sm transition ${correct ? 'border-[#10b981] bg-[#10b981]/10 text-[#065f46]' : wrong ? 'border-[#ef233c] bg-[#ef233c]/10 text-[#991b1b]' : selected ? 'border-[#2b2d42] bg-[#2b2d42]/5 text-[#2b2d42]' : 'border-[#e5e7eb] bg-[#f8f9fa] text-[#374151] hover:bg-white'}`}>{option}</button>
+                            return <button key={option} onClick={() => setRetryAnswers((prev) => ({ ...prev, [item.questionId]: option }))} disabled={retrySubmitted} className={`block w-full rounded-xl border px-4 py-3 text-left text-sm ${correct ? 'border-[#10b981] bg-[#10b981]/10 text-[#065f46]' : wrong ? 'border-[#ef233c] bg-[#ef233c]/10 text-[#991b1b]' : selected ? 'border-[#2b2d42] bg-[#2b2d42]/5 text-[#2b2d42]' : 'border-[#e5e7eb] bg-[#f8f9fa] text-[#374151]'}`}>{option}</button>
                           })}
                         </div>
                         {retrySubmitted && <div className="mt-4 rounded-xl bg-[#f8f9fa] p-4 text-sm leading-6 text-[#4b5563]">{item.explanation}</div>}
@@ -285,7 +321,7 @@ export default function Listening() {
                     ))}
                   </div>
                   <div className="mt-4 flex gap-3">
-                    <button onClick={() => setRetrySubmitted(true)} disabled={retrySubmitted || Object.keys(retryAnswers).length < retryQuestions.length} className={`flex-1 rounded-2xl px-5 py-3 font-semibold text-white transition ${retrySubmitted || Object.keys(retryAnswers).length < retryQuestions.length ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#ef233c] to-[#d91e36]'}`}>提交再练</button>
+                    <button onClick={() => setRetrySubmitted(true)} disabled={retrySubmitted || Object.keys(retryAnswers).length < retryQuestions.length} className={`flex-1 rounded-2xl px-5 py-3 font-semibold text-white ${retrySubmitted || Object.keys(retryAnswers).length < retryQuestions.length ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#ef233c] to-[#d91e36]'}`}>提交再练</button>
                     <button onClick={() => { setRetryAnswers({}); setRetrySubmitted(false) }} className="rounded-2xl border border-[#d1d5db] px-5 py-3 font-semibold text-[#2b2d42]">重做</button>
                   </div>
                 </div>
@@ -304,6 +340,19 @@ export default function Listening() {
               </div>
             </section>
           )}
+
+          <section className="rounded-3xl bg-white p-6 shadow-md">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <div className="mb-3 text-sm font-semibold text-[#2b2d42]">场景筛选</div>
+                <div className="flex flex-wrap gap-3">{[{ key: 'all', label: '全部' }, { key: 'exam-focus', label: '自考导向' }, { key: 'easy-listening', label: '空闲磨耳朵' }].map((item) => <button key={item.key} onClick={() => setScene(item.key as SceneFilter)} className={`rounded-xl px-5 py-2.5 font-medium transition ${scene === item.key ? 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] text-white shadow-md' : 'bg-[#f8f9fa] text-[#2b2d42] hover:bg-[#e9ecef]'}`}>{item.label}</button>)}</div>
+              </div>
+              <div>
+                <div className="mb-3 text-sm font-semibold text-[#2b2d42]">难度筛选</div>
+                <div className="flex flex-wrap gap-3">{[{ key: 'all', label: '全部' }, { key: 'beginner', label: '初级' }, { key: 'intermediate', label: '中级' }, { key: 'advanced', label: '高级' }].map((item) => <button key={item.key} onClick={() => setLevel(item.key as typeof level)} className={`rounded-xl px-5 py-2.5 font-medium transition ${level === item.key ? 'bg-gradient-to-r from-[#2b2d42] to-[#3f4564] text-white shadow-md' : 'bg-[#f8f9fa] text-[#2b2d42] hover:bg-[#e9ecef]'}`}>{item.label}</button>)}</div>
+              </div>
+            </div>
+          </section>
 
           {loading ? <div className="rounded-3xl bg-white p-16 text-center text-[#8d99ae] shadow-md">正在加载听力材料...</div> : error ? <div className="rounded-3xl bg-white p-16 text-center text-[#8d99ae] shadow-md"><div>{error}</div><button onClick={importMaterials} className="mt-6 rounded-2xl bg-gradient-to-r from-[#ef233c] to-[#d91e36] px-6 py-3 font-semibold text-white">导入听力材料</button></div> : (
             <section className="grid gap-6 md:grid-cols-2">
@@ -363,6 +412,7 @@ export default function Listening() {
                     <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-[#2b2d42]">题目模式</h3>{submitted && <span className="rounded-full bg-[#2b2d42] px-3 py-1 text-sm font-semibold text-white">得分 {score}/{quizQuestions.length}</span>}</div>
                     <div className="space-y-4">{quizQuestions.map((question, index) => <div key={question.id} className="rounded-2xl border border-[#e9ecef] bg-white p-5"><div className="font-semibold text-[#2b2d42]">{index + 1}. {question.question}</div><div className="mt-4 space-y-2">{question.options.map((option) => { const selected = answers[question.id] === option; const correct = submitted && question.answer === option; const wrong = submitted && selected && question.answer !== option; return <button key={option} onClick={() => setAnswers((prev) => ({ ...prev, [question.id]: option }))} disabled={submitted} className={`block w-full rounded-xl border px-4 py-3 text-left text-sm ${correct ? 'border-[#10b981] bg-[#10b981]/10 text-[#065f46]' : wrong ? 'border-[#ef233c] bg-[#ef233c]/10 text-[#991b1b]' : selected ? 'border-[#2b2d42] bg-[#2b2d42]/5 text-[#2b2d42]' : 'border-[#e5e7eb] bg-[#f8f9fa] text-[#374151]'}`}>{option}</button> })}</div>{submitted && <div className="mt-4 rounded-xl bg-[#f8f9fa] p-4 text-sm leading-6 text-[#4b5563]">{question.explanation}</div>}</div>)}</div>
                     {quizQuestions.length > 0 && <div className="mt-4 flex gap-3"><button onClick={submitQuiz} disabled={submitted || Object.keys(answers).length < quizQuestions.length} className={`flex-1 rounded-2xl px-5 py-3 font-semibold text-white ${submitted || Object.keys(answers).length < quizQuestions.length ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#ef233c] to-[#d91e36]'}`}>提交答案</button><button onClick={() => { setAnswers({}); setSubmitted(false) }} className="rounded-2xl border border-[#d1d5db] px-5 py-3 font-semibold text-[#2b2d42]">重做</button></div>}
+                    {submitted && dictationSubmitted && <button onClick={saveStudyRecord} className="mt-4 w-full rounded-2xl bg-[#2b2d42] px-5 py-3 font-semibold text-white">保存本次学习记录</button>}
                   </div>
                 </div>
               </div>
