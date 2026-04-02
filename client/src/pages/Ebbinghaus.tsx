@@ -1,82 +1,167 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import WordCard from '../components/WordCard'
 import api from '../utils/api'
 
-interface Word {
+interface WordRecord {
   id: number
   word: string
-  phonetic: string
-  meanings: {
-    pos: string
-    definitions: string[]
-  }[]
-  examples: {
-    en: string
-    zh: string
-    speaker?: string
-  }[]
+  phonetic?: string
+  meanings?: string
+  examples?: string
   backgroundImage?: string
   level: number
   nextReview: string
+  tags?: string
+}
+
+interface ParsedWord extends Omit<WordRecord, 'meanings' | 'examples' | 'tags'> {
+  meanings: { pos: string; definitions: string[] }[]
+  examples: { en: string; zh: string; speaker?: string }[]
   tags: string[]
 }
 
-interface VocabSet {
+interface VocabLibraryItem {
   code: string
   name: string
+  description: string
   count: number
-  icon: string
-  color: string
+}
+
+interface VocabStats {
+  total: number
+  due: number
+}
+
+const REVIEW_STAGES = [
+  { time: '30 分钟', label: '第一次复习', color: '#ef233c' },
+  { time: '1 小时', label: '第二次复习', color: '#f59e0b' },
+  { time: '6 小时', label: '第三次复习', color: '#3b82f6' },
+  { time: '1 天', label: '第四次复习', color: '#10b981' },
+  { time: '2 天', label: '第五次复习', color: '#8b5cf6' },
+  { time: '4 天+', label: '长期巩固', color: '#0f766e' }
+]
+
+const parseWord = (word: WordRecord): ParsedWord => {
+  try {
+    return {
+      ...word,
+      meanings: word.meanings ? JSON.parse(word.meanings) : [],
+      examples: word.examples ? JSON.parse(word.examples) : [],
+      tags: word.tags ? JSON.parse(word.tags) : []
+    }
+  } catch {
+    return {
+      ...word,
+      meanings: [],
+      examples: [],
+      tags: []
+    }
+  }
 }
 
 export default function Ebbinghaus() {
-  const [words, setWords] = useState<Word[]>([])
-  const [reviewWords, setReviewWords] = useState<Word[]>([])
-  const [currentReview, setCurrentReview] = useState<Word | null>(null)
-  const [selectedVocab, setSelectedVocab] = useState<string>('cet4')
-  const [vocabSets, setVocabSets] = useState<VocabSet[]>([])
+  const [library, setLibrary] = useState<VocabLibraryItem[]>([])
+  const [stats, setStats] = useState<Record<string, VocabStats>>({})
+  const [selectedVocab, setSelectedVocab] = useState('selfstudy-complete')
+  const [words, setWords] = useState<WordRecord[]>([])
+  const [reviewWords, setReviewWords] = useState<WordRecord[]>([])
+  const [currentReview, setCurrentReview] = useState<WordRecord | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null)
+
+  const selectedVocabInfo = useMemo(
+    () => library.find((item) => item.code === selectedVocab),
+    [library, selectedVocab]
+  )
+
+  const parsedCurrentReview = useMemo(
+    () => (currentReview ? parseWord(currentReview) : null),
+    [currentReview]
+  )
 
   useEffect(() => {
-    loadVocabSets()
-    loadWords()
+    void loadLibrary()
+    void loadStats()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedVocab) {
+      return
+    }
+    void loadWords(selectedVocab)
   }, [selectedVocab])
 
-  const loadVocabSets = async () => {
+  const loadLibrary = async () => {
     try {
-      const allVocabs = ['selfstudy', 'business', 'cet4', 'ielts']
-      const counts = await Promise.all(
-        allVocabs.map(async (vocab) => {
-          try {
-            const res = await api.get(`/words?vocab=${vocab}`)
-            return res.data.length
-          } catch {
-            return 0
-          }
-        })
-      )
-      
-      setVocabSets([
-        { code: 'selfstudy', name: '自考英语', count: counts[0], icon: '📘', color: '#3b82f6' },
-        { code: 'business', name: '商务英语', count: counts[1], icon: '💼', color: '#8b5cf6' },
-        { code: 'cet4', name: '大学英语四级', count: counts[2], icon: '🎓', color: '#ef233c' },
-        { code: 'ielts', name: '雅思', count: counts[3], icon: '🌍', color: '#10b981' },
-      ])
-    } catch (e) {
-      console.error('Failed to load vocab sets', e)
+      const res = await api.get<VocabLibraryItem[]>('/words/vocab-library')
+      setLibrary(res.data)
+
+      if (!res.data.find((item) => item.code === selectedVocab) && res.data[0]) {
+        setSelectedVocab(res.data[0].code)
+      }
+    } catch (error) {
+      console.error('Failed to load vocab library', error)
     }
   }
 
-  const loadWords = async () => {
+  const loadStats = async () => {
     try {
+      const res = await api.get<Record<string, VocabStats>>('/words/stats')
+      setStats(res.data)
+    } catch (error) {
+      console.error('Failed to load vocab stats', error)
+    }
+  }
+
+  const loadWords = async (vocab: string) => {
+    try {
+      setLoading(true)
       const [allWords, dueWords] = await Promise.all([
-        api.get(`/words?vocab=${selectedVocab}`),
-        api.get(`/words/due?vocab=${selectedVocab}`)
+        api.get<WordRecord[]>(`/words?vocab=${vocab}`),
+        api.get<WordRecord[]>(`/words/due?vocab=${vocab}`)
       ])
       setWords(allWords.data)
       setReviewWords(dueWords.data)
-    } catch (e) {
-      console.error('Failed to load words', e)
+    } catch (error) {
+      console.error('Failed to load words', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const importWholeVocab = async () => {
+    if (!selectedVocabInfo) {
+      return
+    }
+
+    const confirmed = window.confirm(`确定导入整本词库「${selectedVocabInfo.name}」吗？\n本次会把该词库全部词条导入到当前账号。`)
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setImporting(true)
+      setImportProgress({ current: 0, total: selectedVocabInfo.count || 1 })
+
+      const res = await api.post(`/words/import-batch?vocab=${selectedVocab}&batchSize=100`)
+      setImportProgress({ current: res.data.count, total: res.data.total })
+
+      window.setTimeout(() => {
+        alert(
+          `导入完成\n\n词库：${res.data.vocabName}\n新增：${res.data.createdCount}\n更新：${res.data.updatedCount}\n失败：${res.data.errorCount}\n总词数：${res.data.total}`
+        )
+        void loadWords(selectedVocab)
+        void loadStats()
+        setImportProgress(null)
+      }, 300)
+    } catch (error: any) {
+      const message = error?.response?.data?.error || error?.message || '导入失败'
+      alert(message)
+      setImportProgress(null)
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -86,407 +171,257 @@ export default function Ebbinghaus() {
     }
   }
 
-  const handleReview = async (known: boolean) => {
-    if (!currentReview) return
+  const submitReview = async (known: boolean) => {
+    if (!currentReview) {
+      return
+    }
+
     try {
       await api.put(`/words/${currentReview.id}/review`, { known })
-      loadWords()
       setCurrentReview(null)
-    } catch (e) {
-      console.error('Failed to submit review', e)
-    }
-  }
-
-  const parseWord = (word: any) => {
-    try {
-      return {
-        ...word,
-        meanings: word.meanings ? JSON.parse(word.meanings) : [],
-        examples: word.examples ? JSON.parse(word.examples) : [],
-        tags: word.tags ? JSON.parse(word.tags) : []
-      }
-    } catch (e) {
-      console.error('Failed to parse word data', e)
-      return word
+      await loadWords(selectedVocab)
+      await loadStats()
+    } catch (error) {
+      console.error('Failed to submit review', error)
     }
   }
 
   const handleImageChange = async (imageUrl: string) => {
-    if (!currentReview) return
+    if (!currentReview) {
+      return
+    }
+
     try {
       await api.put(`/words/${currentReview.id}/image`, { backgroundImage: imageUrl })
       setCurrentReview({ ...currentReview, backgroundImage: imageUrl })
-    } catch (e) {
-      console.error('Failed to update image', e)
+    } catch (error) {
+      console.error('Failed to update image', error)
     }
   }
-
-  const [importing, setImporting] = useState(false)
-  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null)
-
-  const importVocab = async () => {
-    if (!selectedVocab) return
-    
-    const confirmMsg = `确定要导入「${selectedVocabData?.name}」吗？\n这可能需要一些时间...`
-    if (!window.confirm(confirmMsg)) return
-
-    setImporting(true)
-    setImportProgress({ current: 0, total: 100 })
-
-    try {
-      const res = await api.post(`/words/import-batch?vocab=${selectedVocab}&batchSize=50`)
-      setImportProgress({ current: res.data.count, total: res.data.total })
-      
-      setTimeout(() => {
-        alert(`✅ ${res.data.message}\n\n📊 统计：\n- 新增：${res.data.createdCount || 0}\n- 更新：${res.data.updatedCount || 0}\n- 错误：${res.data.errorCount || 0}\n- 总计：${res.data.total}`)
-        loadWords()
-        loadVocabSets()
-        setImportProgress(null)
-      }, 500)
-    } catch (e: any) {
-      setImportProgress(null)
-      alert(`❌ 导入失败：${e.response?.data?.error || e.message || '未知错误'}`)
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  const selectedVocabData = vocabSets.find(v => v.code === selectedVocab)
-
-  const reviewStages = [
-    { time: '30 分钟', label: '第一次复习', color: '#ef233c' },
-    { time: '1 天', label: '第二次复习', color: '#f59e0b' },
-    { time: '2 天', label: '第三次复习', color: '#3b82f6' },
-    { time: '7 天', label: '第四次复习', color: '#10b981' },
-    { time: '15 天', label: '第五次复习', color: '#8b5cf6' },
-    { time: '30 天', label: '第六次复习', color: '#ec4899' },
-  ]
 
   return (
     <div className="min-h-screen bg-[#edf2f4]">
       <Sidebar />
       <div className="ml-0 md:ml-72 p-6 lg:p-10">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <header className="mb-10 animate-fade-in">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-1 h-12 bg-[#ef233c] rounded-full" />
-                <div>
-                  <h1 className="text-4xl lg:text-5xl font-bold text-[#2b2d42] mb-2">🧠 艾宾浩斯记忆法</h1>
-                  <p className="text-lg text-[#8d99ae]">科学记忆曲线，事半功倍！</p>
-                </div>
-              </div>
-              <button 
-                onClick={importVocab}
-                disabled={importing}
-                className={`group relative font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 ${
-                  importing 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  {importing ? (
-                    <>
-                      <span className="animate-spin">⏳</span> 导入中...
-                    </>
-                  ) : (
-                    <>
-                      📥 导入整本词库
-                    </>
-                  )}
-                </span>
-              </button>
+        <div className="mx-auto max-w-6xl space-y-8">
+          <header className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-md lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-[#2b2d42]">单词记忆</h1>
+              <p className="mt-3 max-w-2xl text-[#8d99ae]">
+                当前页面已支持整本词库导入。词库目录由后端动态读取，包含完整词库、自考词库、四级和雅思词库。
+              </p>
             </div>
+            <button
+              onClick={importWholeVocab}
+              disabled={importing || !selectedVocabInfo}
+              className={`rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition ${
+                importing || !selectedVocabInfo
+                  ? 'cursor-not-allowed bg-gray-400'
+                  : 'bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:scale-[1.02]'
+              }`}
+            >
+              {importing ? '整库导入中...' : '导入整本词库'}
+            </button>
           </header>
 
-          {/* Vocab Selection */}
-          <div className="group relative bg-white rounded-3xl p-8 shadow-md hover:shadow-xl transition-all duration-500 mb-8 animate-slide-in">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#ef233c]/10 to-transparent rounded-bl-full -mr-16 -mt-16 transition-transform duration-500 group-hover:scale-110" />
-            
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-3xl">📚</span>
-                <div>
-                  <h2 className="text-2xl font-bold text-[#2b2d42]">选择词库</h2>
-                  <p className="text-sm text-[#8d99ae]">选择你要学习的词库</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {vocabSets.map((vocab, index) => (
-                  <button
-                    key={vocab.code}
-                    onClick={() => setSelectedVocab(vocab.code)}
-                    className={`group relative p-6 rounded-2xl transition-all duration-300 overflow-hidden ${
-                      selectedVocab === vocab.code
-                        ? 'shadow-xl scale-105'
-                        : 'bg-[#f8f9fa] hover:bg-[#e9ecef] hover:shadow-md'
-                    }`}
-                    style={{
-                      background: selectedVocab === vocab.code 
-                        ? `linear-gradient(135deg, ${vocab.color} 0%, ${vocab.color}dd 100%)`
-                        : undefined,
-                      animationDelay: `${index * 50}ms`
-                    }}
-                  >
-                    <div className="relative z-10">
-                      <span className="text-4xl mb-3 block">{vocab.icon}</span>
-                      <p className={`font-bold mb-1 ${selectedVocab === vocab.code ? 'text-white' : 'text-[#2b2d42]'}`}>
-                        {vocab.name}
-                      </p>
-                      <p className={`text-sm ${selectedVocab === vocab.code ? 'text-white/80' : 'text-[#8d99ae]'}`}>
-                        {vocab.count} 词
-                      </p>
-                    </div>
-                    
-                    {/* Selected indicator */}
-                    {selectedVocab === vocab.code && (
-                      <div className="absolute top-3 right-3 text-white">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
+          <section className="rounded-3xl bg-white p-8 shadow-md">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-[#2b2d42]">可导入词库</h2>
+              <p className="mt-2 text-sm text-[#8d99ae]">优先展示词条数量较大的词库，方便直接导入整本内容。</p>
             </div>
-          </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {library.map((item) => {
+                const selected = item.code === selectedVocab
+                const itemStats = stats[item.code]
 
-          {/* Import Progress */}
+                return (
+                  <button
+                    key={item.code}
+                    onClick={() => setSelectedVocab(item.code)}
+                    className={`rounded-2xl border p-5 text-left transition ${
+                      selected
+                        ? 'border-[#8b5cf6] bg-gradient-to-br from-[#8b5cf6]/10 to-transparent shadow-lg'
+                        : 'border-[#e9ecef] bg-[#f8f9fa] hover:border-[#cbd5e1] hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-lg font-bold text-[#2b2d42]">{item.name}</div>
+                        <div className="mt-1 text-sm text-[#8d99ae]">{item.description || item.code}</div>
+                      </div>
+                      {selected && (
+                        <span className="rounded-full bg-[#8b5cf6] px-3 py-1 text-xs font-semibold text-white">
+                          当前选择
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
+                      <div className="rounded-xl bg-white p-3">
+                        <div className="text-[#8d99ae]">词条总数</div>
+                        <div className="mt-1 font-bold text-[#2b2d42]">{item.count}</div>
+                      </div>
+                      <div className="rounded-xl bg-white p-3">
+                        <div className="text-[#8d99ae]">已导入</div>
+                        <div className="mt-1 font-bold text-[#2b2d42]">{itemStats?.total || 0}</div>
+                      </div>
+                      <div className="rounded-xl bg-white p-3">
+                        <div className="text-[#8d99ae]">待复习</div>
+                        <div className="mt-1 font-bold text-[#ef233c]">{itemStats?.due || 0}</div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
           {importProgress && (
-            <div className="bg-white rounded-2xl p-6 shadow-md mb-8 animate-slide-in">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold text-[#2b2d42]">📥 导入进度</span>
-                <span className="text-sm text-[#8d99ae]">{importProgress.current} / {importProgress.total}</span>
+            <section className="rounded-2xl bg-white p-6 shadow-md">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-semibold text-[#2b2d42]">导入进度</span>
+                <span className="text-sm text-[#8d99ae]">
+                  {importProgress.current} / {importProgress.total}
+                </span>
               </div>
-              <div className="h-3 bg-[#e9ecef] rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] transition-all duration-300"
-                  style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+              <div className="h-3 overflow-hidden rounded-full bg-[#e9ecef]">
+                <div
+                  className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] transition-all"
+                  style={{
+                    width: `${Math.min((importProgress.current / Math.max(importProgress.total, 1)) * 100, 100)}%`
+                  }}
                 />
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Review Status */}
-          <div className="group relative bg-white rounded-3xl p-10 shadow-md hover:shadow-xl transition-all duration-500 mb-8 animate-slide-in delay-1 overflow-hidden">
-            <div className={`absolute inset-0 bg-gradient-to-br ${reviewWords.length > 0 ? 'from-[#ef233c]/10 to-transparent' : 'from-[#10b981]/10 to-transparent'} transition-opacity duration-500`} />
-            
-            <div className="relative text-center">
-              {reviewWords.length > 0 ? (
-                <>
-                  <div className="w-24 h-24 bg-gradient-to-br from-[#ef233c] to-[#d91e36] rounded-full flex items-center justify-center text-white text-5xl mx-auto mb-6 shadow-xl animate-pulse">
-                    📚
-                  </div>
-                  <h2 className="text-3xl font-bold text-[#2b2d42] mb-3">
-                    待复习单词：<span className="text-[#ef233c]">{reviewWords.length}</span> 个
-                  </h2>
-                  <p className="text-[#8d99ae] text-lg mb-8 max-w-md mx-auto">
-                    是时候复习啦！根据艾宾浩斯遗忘曲线，现在复习效果最好～
-                  </p>
-                  <button 
-                    onClick={startReview} 
-                    className="group relative bg-gradient-to-r from-[#ef233c] to-[#d91e36] hover:from-[#d91e36] hover:to-[#c41c30] text-white font-bold px-10 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-lg"
-                  >
-                    <span className="flex items-center gap-2">
-                      🚀 开始复习
-                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="w-24 h-24 bg-gradient-to-br from-[#10b981] to-[#059669] rounded-full flex items-center justify-center text-white text-5xl mx-auto mb-6 shadow-xl animate-bounce">
-                    ✅
-                  </div>
-                  <h2 className="text-3xl font-bold text-[#10b981] mb-3">太棒了！</h2>
-                  <p className="text-[#8d99ae] text-lg">
-                    所有单词都已复习完毕！继续保持哦～
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
+          <section className="grid gap-8 lg:grid-cols-[1.1fr,0.9fr]">
+            <div className="rounded-3xl bg-white p-8 shadow-md">
+              <h2 className="text-2xl font-bold text-[#2b2d42]">当前复习状态</h2>
+              <p className="mt-2 text-[#8d99ae]">
+                词库：{selectedVocabInfo?.name || selectedVocab}，已导入 {words.length} 个单词，待复习 {reviewWords.length} 个。
+              </p>
 
-          {/* Ebbinghaus Curve */}
-          <div className="group relative bg-white rounded-3xl p-8 lg:p-10 shadow-md hover:shadow-xl transition-all duration-500 mb-8 animate-slide-in delay-2">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#8b5cf6]/10 to-transparent rounded-bl-full -mr-16 -mt-16 transition-transform duration-500 group-hover:scale-110" />
-            
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-8">
-                <span className="text-3xl">📈</span>
-                <div>
-                  <h2 className="text-2xl font-bold text-[#2b2d42]">艾宾浩斯遗忘曲线</h2>
-                  <p className="text-sm text-[#8d99ae]">科学规划复习时间</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {reviewStages.map((stage, index) => (
-                  <div
-                    key={index}
-                    className="group/stage relative p-5 rounded-2xl text-center transition-all duration-300 hover:scale-105 overflow-hidden"
-                    style={{
-                      background: `linear-gradient(135deg, ${stage.color}08 0%, ${stage.color}15 100%)`,
-                      border: `2px solid ${stage.color}30`
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover/stage:opacity-100 transition-opacity" />
-                    <div className="relative">
-                      <p 
-                        className="text-xl font-bold mb-1"
-                        style={{ color: stage.color }}
-                      >
-                        {stage.time}
-                      </p>
-                      <p className="text-xs text-[#8d99ae]">{stage.label}</p>
+              <div className="mt-8 rounded-2xl border border-dashed border-[#d9dee8] p-8 text-center">
+                {reviewWords.length > 0 ? (
+                  <>
+                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#ef233c] text-3xl font-bold text-white">
+                      复
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Curve Visualization */}
-              <div className="mt-8 pt-8 border-t border-[#e9ecef]">
-                <div className="relative h-32">
-                  {/* Simple curve SVG */}
-                  <svg className="w-full h-full" viewBox="0 0 400 100" preserveAspectRatio="none">
-                    {/* Grid lines */}
-                    <line x1="0" y1="90" x2="400" y2="90" stroke="#e9ecef" strokeWidth="1" />
-                    <line x1="0" y1="50" x2="400" y2="50" stroke="#e9ecef" strokeWidth="1" strokeDasharray="4" />
-                    <line x1="0" y1="10" x2="400" y2="10" stroke="#e9ecef" strokeWidth="1" strokeDasharray="4" />
-                    
-                    {/* Memory curve */}
-                    <path
-                      d="M 0 10 Q 50 60, 100 75 T 200 82 T 300 87 T 400 90"
-                      fill="none"
-                      stroke="url(#gradient)"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
-                    
-                    {/* Gradient definition */}
-                    <defs>
-                      <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#ef233c" />
-                        <stop offset="50%" stopColor="#f59e0b" />
-                        <stop offset="100%" stopColor="#10b981" />
-                      </linearGradient>
-                    </defs>
-                    
-                    {/* Points */}
-                    <circle cx="0" cy="10" r="5" fill="#ef233c" />
-                    <circle cx="100" cy="75" r="5" fill="#f59e0b" />
-                    <circle cx="200" cy="82" r="5" fill="#3b82f6" />
-                    <circle cx="300" cy="87" r="5" fill="#10b981" />
-                    <circle cx="400" cy="90" r="5" fill="#8b5cf6" />
-                  </svg>
-                  
-                  {/* Labels */}
-                  <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-[#8d99ae] pt-2">
-                    <span>学习</span>
-                    <span>30 分钟</span>
-                    <span>1 天</span>
-                    <span>7 天</span>
-                    <span>30 天</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Word List */}
-          <div className="group relative bg-white rounded-3xl p-8 lg:p-10 shadow-md hover:shadow-xl transition-all duration-500 animate-slide-in delay-3">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#3b82f6]/10 to-transparent rounded-bl-full -mr-16 -mt-16 transition-transform duration-500 group-hover:scale-110" />
-            
-            <div className="relative">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">📝</span>
-                  <div>
-                    <h2 className="text-2xl font-bold text-[#2b2d42]">我的单词本</h2>
-                    <p className="text-sm text-[#8d99ae]">{words.length} 个单词</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                {words.length === 0 ? (
-                  <div className="text-center py-12">
-                    <span className="text-5xl mb-4 block">📭</span>
-                    <p className="text-[#8d99ae]">暂无单词，先导入词库吧！</p>
-                  </div>
-                ) : (
-                  words.map((word, index) => (
-                    <div 
-                      key={word.id} 
-                      className="group/item flex items-center justify-between p-4 bg-[#f8f9fa] rounded-xl hover:bg-gradient-to-r hover:from-[#ef233c]/10 hover:to-transparent transition-all duration-300 cursor-pointer"
+                    <div className="text-3xl font-bold text-[#2b2d42]">有 {reviewWords.length} 个单词待复习</div>
+                    <p className="mx-auto mt-3 max-w-md text-[#8d99ae]">
+                      建议先完成到期复习，再继续导入新词，避免总量不断增加但记忆回收不及时。
+                    </p>
+                    <button
+                      onClick={startReview}
+                      className="mt-6 rounded-2xl bg-gradient-to-r from-[#ef233c] to-[#d91e36] px-8 py-4 font-bold text-white shadow-lg transition hover:scale-[1.02]"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ef233c]/10 to-transparent flex items-center justify-center text-lg font-bold text-[#ef233c]">
-                          {word.word[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-[#2b2d42] group-hover/item:text-[#ef233c] transition-colors">
-                            {word.word}
-                          </p>
-                          <p className="text-[#8d99ae] text-sm">/{word.phonetic}/</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-[#8d99ae] mb-1">下次复习</p>
-                        <p className="text-sm font-medium text-[#2b2d42]">
-                          {new Date(word.nextReview).toLocaleDateString('zh-CN')}
-                        </p>
-                      </div>
+                      开始复习
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#10b981] text-3xl font-bold text-white">
+                      OK
                     </div>
-                  ))
+                    <div className="text-3xl font-bold text-[#10b981]">当前没有到期复习</div>
+                    <p className="mt-3 text-[#8d99ae]">可以切换词库继续学习，或者导入整本词库开始下一轮记忆。</p>
+                  </>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Review Modal */}
-          {currentReview && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="relative max-w-4xl w-full animate-scale-in">
+            <div className="rounded-3xl bg-white p-8 shadow-md">
+              <h2 className="text-2xl font-bold text-[#2b2d42]">复习节奏</h2>
+              <p className="mt-2 text-[#8d99ae]">按照艾宾浩斯时间点安排复习，减少遗忘后的重新学习成本。</p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                {REVIEW_STAGES.map((stage) => (
+                  <div
+                    key={stage.time}
+                    className="rounded-2xl border p-4"
+                    style={{ borderColor: `${stage.color}33`, background: `${stage.color}10` }}
+                  >
+                    <div className="font-bold" style={{ color: stage.color }}>
+                      {stage.time}
+                    </div>
+                    <div className="mt-1 text-sm text-[#8d99ae]">{stage.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl bg-white p-8 shadow-md">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-[#2b2d42]">词库单词列表</h2>
+                <p className="mt-2 text-sm text-[#8d99ae]">用于确认整本词库已经导入，以及每个词条的下一次复习时间。</p>
+              </div>
+              <div className="text-sm text-[#8d99ae]">{loading ? '加载中...' : `${words.length} 条记录`}</div>
+            </div>
+
+            <div className="max-h-96 space-y-3 overflow-y-auto pr-2">
+              {!loading && words.length === 0 ? (
+                <div className="rounded-2xl bg-[#f8f9fa] p-12 text-center text-[#8d99ae]">
+                  当前词库还没有数据，点击上方“导入整本词库”即可。
+                </div>
+              ) : (
+                words.map((word) => (
+                  <div
+                    key={word.id}
+                    className="flex items-center justify-between rounded-xl bg-[#f8f9fa] p-4 transition hover:bg-gradient-to-r hover:from-[#ef233c]/10 hover:to-transparent"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ef233c]/10 font-bold text-[#ef233c]">
+                        {word.word?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <div className="font-bold text-[#2b2d42]">{word.word}</div>
+                        <div className="text-sm text-[#8d99ae]">/{word.phonetic || '-'}/</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-[#8d99ae]">下次复习</div>
+                      <div className="text-sm font-medium text-[#2b2d42]">
+                        {new Date(word.nextReview).toLocaleDateString('zh-CN')}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {currentReview && parsedCurrentReview && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+              <div className="relative w-full max-w-4xl">
                 <button
                   onClick={() => setCurrentReview(null)}
-                  className="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all"
+                  className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30"
                 >
-                  ✕
+                  X
                 </button>
-                
+
                 <WordCard
-                  word={currentReview.word}
-                  phonetic={currentReview.phonetic || ''}
-                  meanings={parseWord(currentReview).meanings}
-                  examples={parseWord(currentReview).examples}
-                  backgroundImage={currentReview.backgroundImage}
+                  word={parsedCurrentReview.word}
+                  phonetic={parsedCurrentReview.phonetic || ''}
+                  meanings={parsedCurrentReview.meanings}
+                  examples={parsedCurrentReview.examples}
+                  backgroundImage={parsedCurrentReview.backgroundImage}
                   onImageChange={handleImageChange}
                 />
 
-                {/* Review Actions */}
                 <div className="mt-6 grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={() => handleReview(false)} 
-                    className="group relative bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-5 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                  <button
+                    onClick={() => submitReview(false)}
+                    className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]"
                   >
-                    <span className="flex items-center justify-center gap-2 text-lg">
-                      ❌ 不认识
-                    </span>
+                    不认识
                   </button>
-                  <button 
-                    onClick={() => handleReview(true)} 
-                    className="group relative bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white font-bold py-5 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                  <button
+                    onClick={() => submitReview(true)}
+                    className="rounded-2xl bg-gradient-to-r from-[#10b981] to-[#059669] py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]"
                   >
-                    <span className="flex items-center justify-center gap-2 text-lg">
-                      ✅ 认识
-                    </span>
+                    认识
                   </button>
                 </div>
               </div>

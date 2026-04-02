@@ -4,17 +4,104 @@ import { authMiddleware, AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
 
-// 获取听力材料列表
+const listeningMaterials = [
+  {
+    title: 'Self-study Exam Dialogue: Registration Day',
+    titleZh: '自考场景听力：报名日对话',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    transcript: `Good morning. I am here to confirm my registration for the English exam.
+Certainly. May I have your ID card and your admission number?
+Here they are. I also want to check the time of the listening section.
+The listening section starts at nine o'clock sharp, so please arrive at least thirty minutes early.
+Do I need to bring my own headphones?
+No. The testing center will provide the listening equipment, but you should bring black pens and your identification documents.`,
+    transcriptZh: `早上好，我来确认英语考试报名信息。
+可以，请出示身份证和准考证号。
+给您。我还想确认一下听力部分开始的时间。
+听力部分九点整开始，所以你最好提前至少三十分钟到达。
+我需要自带耳机吗？
+不用，考点会提供听力设备，但你需要带黑色签字笔和身份证件。`,
+    duration: 165,
+    level: 'beginner',
+    type: 'dialogue',
+    tags: JSON.stringify(['exam-focus', 'self-study', 'dialogue'])
+  },
+  {
+    title: 'Self-study Exam Passage: Study Schedule',
+    titleZh: '自考篇章听力：学习计划',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    transcript: `Many self-study learners fail not because they are not intelligent, but because they study without a stable schedule. A practical plan should include three parts: short daily review, focused listening practice, and a weekly reading summary. The daily review keeps old material active. Focused listening trains attention to details such as numbers, time, and speaker intention. The weekly summary helps learners connect different topics and notice repeated mistakes. With a fixed routine, learners become more efficient and less anxious before an exam.`,
+    transcriptZh: `很多自考学习者失败并不是因为不聪明，而是因为学习安排不稳定。一个务实的计划应包含三部分：每天短时复习、集中听力训练，以及每周一次阅读总结。每天复习能让旧内容保持活跃；集中听力能训练对数字、时间和说话者意图等细节的捕捉；每周总结则帮助学习者把不同主题联系起来，并发现反复出现的错误。有了固定节奏，备考效率会更高，考前焦虑也会下降。`,
+    duration: 215,
+    level: 'intermediate',
+    type: 'lecture',
+    tags: JSON.stringify(['exam-focus', 'self-study', 'passage'])
+  },
+  {
+    title: 'Self-study Advanced Listening: Education Policy Talk',
+    titleZh: '自考高级听力：教育政策讲解',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    transcript: `Education policy discussions often require listeners to track more than isolated facts. A speaker may compare old policy targets with new implementation strategies, then explain why the changes matter for adult learners. In this kind of listening task, the best approach is to identify the topic sentence of each section and note the relationship between cause, policy choice, and expected result. Advanced learners should also pay attention to contrast signals, because exam questions often test whether the listener can distinguish previous conditions from current reforms.`,
+    transcriptZh: `教育政策类听力并不只是听零散事实。讲话者可能先比较旧政策目标和新执行策略，再说明这些变化为什么会影响成人学习者。面对这类材料，最有效的方法是先抓住每一部分的主题句，再记录原因、政策选择和预期结果之间的关系。高级学习者还要特别注意转折信号，因为考试题经常会考查你能否分清“过去状况”和“当前改革”。`,
+    duration: 260,
+    level: 'advanced',
+    type: 'lecture',
+    tags: JSON.stringify(['exam-focus', 'self-study', 'policy'])
+  },
+  {
+    title: 'Easy Listening: Morning Commute English',
+    titleZh: '磨耳朵：通勤场景英语',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    transcript: `I usually leave home at seven thirty and catch the subway at seven forty-five. During the ride, I listen to short English audio clips. I do not try to understand every word. I only focus on key ideas and repeated expressions. After a few weeks, I noticed that common phrases became much easier to recognize. This kind of light practice is useful for busy learners because it turns free time into steady listening exposure.`,
+    transcriptZh: `我通常七点半出门，七点四十五坐上地铁。通勤时我会听一些简短英语音频。我不会要求自己每个词都听懂，只关注核心意思和反复出现的表达。几周之后，我发现常见短语更容易被识别出来了。对时间紧张的学习者来说，这种轻量练习很有价值，因为它能把碎片时间转成稳定的听力输入。`,
+    duration: 180,
+    level: 'beginner',
+    type: 'story',
+    tags: JSON.stringify(['easy-listening', 'free-time', 'daily-life'])
+  },
+  {
+    title: 'Easy Listening: Health Podcast Summary',
+    titleZh: '磨耳朵：健康播客摘要',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+    transcript: `In today's short podcast, the host talks about sleep habits and mental focus. She explains that people often try to improve productivity by working longer hours, but better rest can be more effective. She recommends reducing screen time before bed, keeping a regular schedule, and taking brief walks during the day. The advice is simple, but the language is natural and useful for everyday listening practice.`,
+    transcriptZh: `今天这段短播客讨论的是睡眠习惯和注意力。主持人解释说，很多人想通过延长工作时间来提高效率，但更好的休息往往更有效。她建议睡前减少看屏幕、保持固定作息、白天短暂散步。这些建议本身很简单，但语言自然，很适合做日常磨耳朵训练。`,
+    duration: 210,
+    level: 'intermediate',
+    type: 'news',
+    tags: JSON.stringify(['easy-listening', 'free-time', 'podcast'])
+  },
+  {
+    title: 'Easy Listening Advanced: Workplace Communication',
+    titleZh: '磨耳朵高级：职场沟通',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+    transcript: `Workplace communication becomes difficult when people assume that being direct and being rude are the same thing. In reality, clear communication often prevents misunderstanding and saves time. Effective professionals explain expectations early, confirm decisions in writing, and raise concerns before small issues become expensive problems. For advanced listeners, this topic is useful because it combines common business vocabulary with clear argumentative structure.`,
+    transcriptZh: `当人们把“直接表达”和“粗鲁”混为一谈时，职场沟通就会变得困难。实际上，清晰表达往往能减少误解并节省时间。高效的职场人士会尽早说明预期、把决定落到书面上，并在小问题演变成高成本问题之前提出风险。对高级学习者来说，这个话题很适合听力训练，因为它同时包含常见商务词汇和清晰的论证结构。`,
+    duration: 230,
+    level: 'advanced',
+    type: 'lecture',
+    tags: JSON.stringify(['easy-listening', 'free-time', 'workplace'])
+  }
+]
+
 router.get('/', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const { level, type } = req.query
-    const where: any = {}
-    
-    if (level) {
+    const { level, type, scene } = req.query
+    const where: {
+      level?: string
+      type?: string
+      tags?: { contains: string }
+    } = {}
+
+    if (typeof level === 'string' && level) {
       where.level = level
     }
-    if (type) {
+
+    if (typeof type === 'string' && type) {
       where.type = type
+    }
+
+    if (typeof scene === 'string' && scene) {
+      where.tags = { contains: scene }
     }
 
     const materials = await prisma.listening.findMany({
@@ -24,17 +111,15 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
 
     res.json(materials)
   } catch (error) {
-    console.error('获取听力材料错误:', error)
+    console.error('Failed to load listening materials:', error)
     res.status(500).json({ error: '获取听力材料失败' })
   }
 })
 
-// 获取单个听力材料
 router.get('/:id', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params
     const material = await prisma.listening.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: Number.parseInt(req.params.id, 10) }
     })
 
     if (!material) {
@@ -43,104 +128,26 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res) => {
 
     res.json(material)
   } catch (error) {
-    console.error('获取听力材料错误:', error)
+    console.error('Failed to load listening material:', error)
     res.status(500).json({ error: '获取听力材料失败' })
   }
 })
 
-// 导入听力材料（使用真实可用的音频源）
-router.post('/import', authMiddleware, async (req: AuthRequest, res) => {
+router.post('/import', authMiddleware, async (_req: AuthRequest, res) => {
   try {
-    // 使用真实可用的音频资源 (VOA/BBC 等公开资源)
-    const sampleMaterials = [
-      {
-        title: "VOA Learning English - Science & Technology",
-        titleZh: "VOA 学习英语 - 科技",
-        audioUrl: "https://voa-11.akacast.akamaistream.net/7/597/238986/v1/ibb.akamaized.net/media/element/2024/03/15/20240315_st_tech.mp3",
-        transcript: "Technology continues to change how we live and work. New developments in artificial intelligence and robotics are creating both opportunities and challenges. Experts say workers need to adapt and learn new skills to succeed in the changing economy.",
-        transcriptZh: "科技继续改变我们的生活和工作方式。人工智能和机器人技术的新发展既创造了机遇也带来了挑战。专家表示，工人需要适应并学习新技能才能在变化的经济中取得成功。",
-        duration: 240,
-        level: "beginner",
-        type: "news",
-        tags: JSON.stringify(["VOA", "慢速", "科技"])
-      },
-      {
-        title: "BBC 6 Minute English - Health",
-        titleZh: "BBC 6 分钟英语 - 健康话题",
-        audioUrl: "https://podcasts.files.bbci.co.uk/p02pc9qn.m4a",
-        transcript: "How much sleep do we really need? Research suggests that most adults require between seven and nine hours per night. But modern life often makes it difficult to get enough rest. What can we do to improve our sleep habits?",
-        transcriptZh: "我们到底需要多少睡眠？研究表明大多数成年人每晚需要 7 到 9 小时。但现代生活常常让我们难以获得足够的休息。我们能做些什么来改善睡眠习惯呢？",
-        duration: 360,
-        level: "intermediate",
-        type: "lecture",
-        tags: JSON.stringify(["BBC", "健康", "6 分钟"])
-      },
-      {
-        title: "Everyday English - Shopping Conversation",
-        titleZh: "日常英语 - 购物对话",
-        audioUrl: "https://media.blubrry.com/eslpod/eslpod.com/episodes/2024/ESL_Podcast_2024-03-15.mp3",
-        transcript: "Customer: Excuse me, where can I find the electronics section? Clerk: It's on the second floor, next to the home appliances. Customer: Thank you. Do you have any smartphones on sale? Clerk: Yes, we have a special promotion this week.",
-        transcriptZh: "顾客：请问，电子产品区在哪里？店员：在二楼，家电旁边。顾客：谢谢。有智能手机打折吗？店员：是的，我们本周有特别促销。",
-        duration: 180,
-        level: "beginner",
-        type: "dialogue",
-        tags: JSON.stringify(["对话", "购物", "日常"])
-      },
-      {
-        title: "NPR News - Business Report",
-        titleZh: "NPR 新闻 - 商业报道",
-        audioUrl: "https://play.podtrac.com/npr-510019/edge1.pod.npr.org/anon.npr-mp3/npr/news/2024/03/20240315_news_business.mp3",
-        transcript: "Stock markets around the world showed mixed results today. Investors are watching for signs of economic recovery. The Federal Reserve is expected to announce its interest rate decision later this week. Analysts predict a cautious approach.",
-        transcriptZh: "全球股市今日表现不一。投资者正在关注经济复苏的迹象。美联储预计将在本周晚些时候宣布利率决定。分析师预测将采取谨慎态度。",
-        duration: 300,
-        level: "advanced",
-        type: "news",
-        tags: JSON.stringify(["NPR", "商业", "新闻"])
-      },
-      {
-        title: "Classic Story - The Tortoise and the Hare",
-        titleZh: "经典故事 - 龟兔赛跑",
-        audioUrl: "https://www.storynory.com/wp-content/uploads/2024/03/Tortoise-Hare.mp3",
-        transcript: "Once upon a time, a hare laughed at a tortoise for being so slow. The tortoise challenged the hare to a race. The hare was confident and took a nap during the race. The tortoise kept going slowly but steadily and won the race.",
-        transcriptZh: "从前，一只兔子嘲笑乌龟爬得慢。乌龟向兔子提出比赛。兔子很自信，在比赛中睡了一觉。乌龟坚持不懈地慢慢爬，最终赢得了比赛。",
-        duration: 420,
-        level: "beginner",
-        type: "story",
-        tags: JSON.stringify(["故事", "寓言", "经典"])
-      },
-      {
-        title: "TED-Ed - How Languages Evolve",
-        titleZh: "TED-Ed - 语言如何演变",
-        audioUrl: "https://download.ted.com/talks/JohnMcWhorter_2024G-480p.mp3",
-        transcript: "Languages are constantly changing and evolving. New words are created, old words disappear, and grammar rules shift over time. This process happens in all languages, driven by how people actually use them in daily communication.",
-        transcriptZh: "语言在不断变化和演变。新词被创造，旧词消失，语法规则随时间推移而变化。这个过程发生在所有语言中，由人们在日常交流中的实际使用方式推动。",
-        duration: 480,
-        level: "advanced",
-        type: "lecture",
-        tags: JSON.stringify(["TED", "语言", "教育"])
-      }
-    ]
+    await prisma.$transaction([
+      prisma.listening.deleteMany(),
+      prisma.listening.createMany({
+        data: listeningMaterials
+      })
+    ])
 
-    // 先检查是否已存在
-    const existing = await prisma.listening.count()
-    if (existing > 0) {
-      return res.json({ message: `已有 ${existing} 个听力材料`, count: existing })
-    }
-
-    const created = await Promise.all(
-      sampleMaterials.map(material => 
-        prisma.listening.create({ data: material }).catch(e => { console.error(e); return null })
-      )
-    )
-
-    const successCount = created.filter(m => m !== null).length
-
-    res.json({ 
-      message: `成功导入 ${successCount} 个听力材料`, 
-      count: successCount 
+    res.json({
+      message: '已导入自考导向与磨耳朵听力材料',
+      count: listeningMaterials.length
     })
   } catch (error) {
-    console.error('导入听力材料错误:', error)
+    console.error('Failed to import listening materials:', error)
     res.status(500).json({ error: '导入听力材料失败' })
   }
 })

@@ -1,20 +1,27 @@
-import { Router } from 'express'
 import fs from 'fs'
 import path from 'path'
+import { Router } from 'express'
 import prisma from '../db.js'
 import { authMiddleware, AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
 
-const EBINGHAUS_INTERVALS = [0.5, 1, 6, 24, 48, 96, 168, 336]
+const EBBINGHAUS_INTERVALS = [0.5, 1, 6, 24, 48, 96, 168, 336]
+const VOCAB_DIR = path.resolve(process.cwd(), '../data/vocab')
 
-type ImportedWord = {
+type VocabularyWord = {
   word: string
   phonetic?: string
   meanings?: unknown
   examples?: unknown
   backgroundImage?: string | null
   tags?: unknown
+}
+
+type VocabularyFile = {
+  name?: string
+  description?: string
+  words?: VocabularyWord[]
 }
 
 const normalizeWord = (value: string) => value.trim().toLowerCase()
@@ -24,22 +31,45 @@ const parseWordId = (value: string) => {
   return Number.isNaN(parsed) ? null : parsed
 }
 
-const resolveVocabPath = (vocabCode: string) =>
-  path.resolve(process.cwd(), '../data/vocab', `${vocabCode}.json`)
+const resolveVocabPath = (code: string) => path.join(VOCAB_DIR, `${code}.json`)
 
-const serialize = (value: unknown) => (value == null ? null : JSON.stringify(value))
+const loadVocabularyFile = (code: string): VocabularyFile | null => {
+  const filePath = resolveVocabPath(code)
+  if (!fs.existsSync(filePath)) {
+    return null
+  }
 
-const buildWordPayload = (userId: number, vocabCode: string, word: ImportedWord) => ({
-  userId,
-  word: normalizeWord(word.word),
-  phonetic: word.phonetic || '',
-  meanings: serialize(word.meanings),
-  examples: serialize(word.examples),
-  backgroundImage: word.backgroundImage || null,
-  vocabSet: vocabCode,
-  tags: serialize(word.tags || []),
-  level: 0,
-  nextReview: new Date()
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as VocabularyFile
+}
+
+router.get('/vocab-library', authMiddleware, async (_req: AuthRequest, res) => {
+  try {
+    const files = fs
+      .readdirSync(VOCAB_DIR)
+      .filter((file) => file.endsWith('.json'))
+      .filter((file) => !file.includes('-old'))
+      .filter((file) => !file.includes('complete') || file.startsWith('selfstudy'))
+
+    const library = files
+      .map((file) => {
+        const code = file.replace(/\.json$/i, '')
+        const data = loadVocabularyFile(code)
+        const words = data?.words || []
+
+        return {
+          code,
+          name: data?.name || code,
+          description: data?.description || '',
+          count: words.length
+        }
+      })
+      .sort((a, b) => b.count - a.count)
+
+    res.json(library)
+  } catch (error) {
+    console.error('Failed to load vocabulary library:', error)
+    res.status(500).json({ error: '加载词库目录失败' })
+  }
 })
 
 router.get('/stats', authMiddleware, async (req: AuthRequest, res) => {
@@ -63,28 +93,24 @@ router.get('/stats', authMiddleware, async (req: AuthRequest, res) => {
       })
     ])
 
-    const stats: Record<string, { total: number; due: number }> = {}
+    const stats = new Map<string, { total: number; due: number }>()
 
     totalGroups.forEach((group) => {
-      const key = group.vocabSet || 'unknown'
-      stats[key] = {
-        total: group._count._all,
-        due: 0
-      }
+      const key = group.vocabSet || 'unassigned'
+      stats.set(key, { total: group._count._all, due: 0 })
     })
 
     dueGroups.forEach((group) => {
-      const key = group.vocabSet || 'unknown'
-      stats[key] = {
-        total: stats[key]?.total || 0,
-        due: group._count._all
-      }
+      const key = group.vocabSet || 'unassigned'
+      const current = stats.get(key) || { total: 0, due: 0 }
+      current.due = group._count._all
+      stats.set(key, current)
     })
 
-    res.json(stats)
+    res.json(Object.fromEntries(stats))
   } catch (error) {
-    console.error('Failed to load vocab stats:', error)
-    res.status(500).json({ error: 'Failed to load vocab stats' })
+    console.error('Failed to load vocabulary stats:', error)
+    res.status(500).json({ error: '加载词库统计失败' })
   }
 })
 
@@ -105,7 +131,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
     res.json(words)
   } catch (error) {
     console.error('Failed to load words:', error)
-    res.status(500).json({ error: 'Failed to load words' })
+    res.status(500).json({ error: '获取单词失败' })
   }
 })
 
@@ -133,28 +159,29 @@ router.get('/due', authMiddleware, async (req: AuthRequest, res) => {
     res.json(words)
   } catch (error) {
     console.error('Failed to load due words:', error)
-    res.status(500).json({ error: 'Failed to load due words' })
+    res.status(500).json({ error: '获取待复习单词失败' })
   }
 })
 
 router.post('/', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { word, phonetic, meanings, examples, backgroundImage, vocabSet, tags } = req.body
-    const normalizedWord = typeof word === 'string' ? normalizeWord(word) : ''
 
-    if (!normalizedWord) {
-      return res.status(400).json({ error: 'Word is required' })
+    if (typeof word !== 'string' || !word.trim()) {
+      return res.status(400).json({ error: '单词不能为空' })
     }
 
-    const existing = await prisma.word.findFirst({
+    const normalizedWord = normalizeWord(word)
+
+    const existingWord = await prisma.word.findFirst({
       where: {
         userId: req.userId!,
         word: normalizedWord
       }
     })
 
-    if (existing) {
-      return res.status(409).json({ error: 'Word already exists' })
+    if (existingWord) {
+      return res.status(409).json({ error: '该单词已存在' })
     }
 
     const [newWord] = await prisma.$transaction([
@@ -163,11 +190,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
           userId: req.userId!,
           word: normalizedWord,
           phonetic: phonetic || '',
-          meanings: serialize(meanings),
-          examples: serialize(examples),
+          meanings: meanings ? JSON.stringify(meanings) : null,
+          examples: examples ? JSON.stringify(examples) : null,
           backgroundImage: backgroundImage || null,
           vocabSet: vocabSet || null,
-          tags: serialize(tags),
+          tags: tags ? JSON.stringify(tags) : null,
           level: 0,
           nextReview: new Date()
         }
@@ -178,20 +205,21 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
       })
     ])
 
-    res.json({ message: 'Word created', word: newWord })
+    res.json({ message: '添加成功', word: newWord })
   } catch (error) {
     console.error('Failed to create word:', error)
-    res.status(500).json({ error: 'Failed to create word' })
+    res.status(500).json({ error: '添加单词失败' })
   }
 })
 
 router.put('/:id/review', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const wordId = parseWordId(req.params.id)
+    const { id } = req.params
     const { known } = req.body
+    const wordId = parseWordId(id)
 
     if (wordId === null) {
-      return res.status(400).json({ error: 'Invalid word id' })
+      return res.status(400).json({ error: '单词 ID 无效' })
     }
 
     const word = await prisma.word.findUnique({
@@ -199,11 +227,11 @@ router.put('/:id/review', authMiddleware, async (req: AuthRequest, res) => {
     })
 
     if (!word || word.userId !== req.userId!) {
-      return res.status(404).json({ error: 'Word not found' })
+      return res.status(404).json({ error: '单词不存在' })
     }
 
     const newLevel = known ? word.level + 1 : Math.max(0, word.level - 1)
-    const interval = EBINGHAUS_INTERVALS[Math.min(newLevel, EBINGHAUS_INTERVALS.length - 1)]
+    const interval = EBBINGHAUS_INTERVALS[Math.min(newLevel, EBBINGHAUS_INTERVALS.length - 1)]
     const nextReview = new Date(Date.now() + interval * 60 * 60 * 1000)
 
     const updatedWord = await prisma.word.update({
@@ -211,20 +239,21 @@ router.put('/:id/review', authMiddleware, async (req: AuthRequest, res) => {
       data: { level: newLevel, nextReview }
     })
 
-    res.json({ message: 'Review completed', word: updatedWord })
+    res.json({ message: '复习完成', word: updatedWord })
   } catch (error) {
     console.error('Failed to review word:', error)
-    res.status(500).json({ error: 'Failed to review word' })
+    res.status(500).json({ error: '复习单词失败' })
   }
 })
 
 router.put('/:id/image', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const wordId = parseWordId(req.params.id)
+    const { id } = req.params
     const { backgroundImage } = req.body
+    const wordId = parseWordId(id)
 
     if (wordId === null) {
-      return res.status(400).json({ error: 'Invalid word id' })
+      return res.status(400).json({ error: '单词 ID 无效' })
     }
 
     const word = await prisma.word.findUnique({
@@ -232,7 +261,7 @@ router.put('/:id/image', authMiddleware, async (req: AuthRequest, res) => {
     })
 
     if (!word || word.userId !== req.userId!) {
-      return res.status(404).json({ error: 'Word not found' })
+      return res.status(404).json({ error: '单词不存在' })
     }
 
     const updatedWord = await prisma.word.update({
@@ -240,19 +269,20 @@ router.put('/:id/image', authMiddleware, async (req: AuthRequest, res) => {
       data: { backgroundImage }
     })
 
-    res.json({ message: 'Image updated', word: updatedWord })
+    res.json({ message: '更新成功', word: updatedWord })
   } catch (error) {
     console.error('Failed to update word image:', error)
-    res.status(500).json({ error: 'Failed to update word image' })
+    res.status(500).json({ error: '更新单词图片失败' })
   }
 })
 
 router.delete('/:id', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const wordId = parseWordId(req.params.id)
+    const { id } = req.params
+    const wordId = parseWordId(id)
 
     if (wordId === null) {
-      return res.status(400).json({ error: 'Invalid word id' })
+      return res.status(400).json({ error: '单词 ID 无效' })
     }
 
     const word = await prisma.word.findUnique({
@@ -260,7 +290,7 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res) => {
     })
 
     if (!word || word.userId !== req.userId!) {
-      return res.status(404).json({ error: 'Word not found' })
+      return res.status(404).json({ error: '单词不存在' })
     }
 
     await prisma.$transaction([
@@ -271,69 +301,78 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res) => {
       })
     ])
 
-    res.json({ message: 'Word deleted' })
+    res.json({ message: '删除成功' })
   } catch (error) {
     console.error('Failed to delete word:', error)
-    res.status(500).json({ error: 'Failed to delete word' })
+    res.status(500).json({ error: '删除单词失败' })
   }
 })
 
 router.post('/import-batch', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const { vocab, batchSize = '50' } = req.query as { vocab?: string; batchSize?: string }
-    const userId = req.userId!
+    const { vocab, batchSize = '100' } = req.query as { vocab?: string; batchSize?: string }
     const vocabCode = vocab || 'cet4'
-    const batchSizeNum = Number.parseInt(batchSize, 10) || 50
-    const vocabPath = resolveVocabPath(vocabCode)
+    const batchSizeNum = Math.max(20, Number.parseInt(batchSize, 10) || 100)
+    const vocabData = loadVocabularyFile(vocabCode)
 
-    if (!fs.existsSync(vocabPath)) {
-      return res.status(404).json({ error: `Vocab ${vocabCode} not found` })
+    if (!vocabData) {
+      return res.status(404).json({ error: `词库 ${vocabCode} 不存在` })
     }
 
-    const vocabData = JSON.parse(fs.readFileSync(vocabPath, 'utf-8'))
-    const words = (vocabData.words || []) as ImportedWord[]
-
+    const words = Array.isArray(vocabData.words) ? vocabData.words : []
     if (words.length === 0) {
-      return res.status(400).json({ error: 'Vocab file is empty' })
+      return res.status(400).json({ error: '词库为空' })
     }
 
     let createdCount = 0
     let updatedCount = 0
     let errorCount = 0
 
-    for (let index = 0; index < words.length; index += batchSizeNum) {
-      const batch = words.slice(index, index + batchSizeNum)
-      const normalizedWords = batch.map((item) => normalizeWord(item.word))
+    for (let i = 0; i < words.length; i += batchSizeNum) {
+      const batch = words.slice(i, i + batchSizeNum)
+      const normalizedWordMap = new Map(batch.map((item) => [normalizeWord(item.word), item]))
+
       const existingWords = await prisma.word.findMany({
         where: {
-          userId,
-          word: { in: normalizedWords }
+          userId: req.userId!,
+          word: { in: [...normalizedWordMap.keys()] }
         }
       })
 
-      const existingWordMap = new Map(existingWords.map((word) => [word.word, word.id]))
-      const toCreate = batch.filter((item) => !existingWordMap.has(normalizeWord(item.word)))
-      const toUpdate = batch.filter((item) => existingWordMap.has(normalizeWord(item.word)))
+      const existingWordMap = new Map(existingWords.map((item) => [item.word, item.id]))
+      const toCreate = [...normalizedWordMap.entries()].filter(([word]) => !existingWordMap.has(word))
+      const toUpdate = [...normalizedWordMap.entries()].filter(([word]) => existingWordMap.has(word))
 
       const [createResults, updateResults] = await Promise.all([
         Promise.allSettled(
-          toCreate.map((item) =>
+          toCreate.map(([normalizedWord, item]) =>
             prisma.word.create({
-              data: buildWordPayload(userId, vocabCode, item)
+              data: {
+                userId: req.userId!,
+                word: normalizedWord,
+                phonetic: item.phonetic || '',
+                meanings: item.meanings ? JSON.stringify(item.meanings) : null,
+                examples: item.examples ? JSON.stringify(item.examples) : null,
+                backgroundImage: item.backgroundImage || null,
+                vocabSet: vocabCode,
+                tags: item.tags ? JSON.stringify(item.tags) : JSON.stringify([]),
+                level: 0,
+                nextReview: new Date()
+              }
             })
           )
         ),
         Promise.allSettled(
-          toUpdate.map((item) =>
+          toUpdate.map(([normalizedWord, item]) =>
             prisma.word.update({
-              where: { id: existingWordMap.get(normalizeWord(item.word))! },
+              where: { id: existingWordMap.get(normalizedWord)! },
               data: {
                 phonetic: item.phonetic || '',
-                meanings: serialize(item.meanings),
-                examples: serialize(item.examples),
+                meanings: item.meanings ? JSON.stringify(item.meanings) : null,
+                examples: item.examples ? JSON.stringify(item.examples) : null,
                 backgroundImage: item.backgroundImage || null,
                 vocabSet: vocabCode,
-                tags: serialize(item.tags || [])
+                tags: item.tags ? JSON.stringify(item.tags) : JSON.stringify([])
               }
             })
           )
@@ -342,107 +381,94 @@ router.post('/import-batch', authMiddleware, async (req: AuthRequest, res) => {
 
       createdCount += createResults.filter((result) => result.status === 'fulfilled').length
       updatedCount += updateResults.filter((result) => result.status === 'fulfilled').length
-      errorCount += createResults.filter((result) => result.status === 'rejected').length
-      errorCount += updateResults.filter((result) => result.status === 'rejected').length
+      errorCount +=
+        createResults.filter((result) => result.status === 'rejected').length +
+        updateResults.filter((result) => result.status === 'rejected').length
     }
 
     if (createdCount > 0) {
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: req.userId! },
         data: { totalWords: { increment: createdCount } }
       })
     }
 
     res.json({
-      message: `Imported ${createdCount + updatedCount} words`,
+      message: `成功导入 ${createdCount + updatedCount} 个单词`,
       count: createdCount + updatedCount,
       createdCount,
       updatedCount,
       errorCount,
       total: words.length,
-      vocabName: vocabData.name
+      vocabName: vocabData.name || vocabCode
     })
   } catch (error: any) {
-    console.error('Failed to import batch vocab:', error)
-    res.status(500).json({ error: error?.message || 'Failed to import batch vocab' })
+    console.error('Failed to import vocabulary:', error)
+    res.status(500).json({ error: error?.message || '导入词库失败' })
   }
 })
 
 router.post('/import-sample', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { vocab } = req.query as { vocab?: string }
-    const userId = req.userId!
     const vocabCode = vocab || 'cet4'
-    const vocabPath = resolveVocabPath(vocabCode)
+    const vocabData = loadVocabularyFile(vocabCode)
 
-    if (!fs.existsSync(vocabPath)) {
-      return res.status(404).json({ error: `Vocab ${vocabCode} not found` })
+    if (!vocabData) {
+      return res.status(404).json({ error: `词库 ${vocabCode} 不存在` })
     }
 
-    const vocabData = JSON.parse(fs.readFileSync(vocabPath, 'utf-8'))
-    const words = (vocabData.words || []) as ImportedWord[]
-
-    if (words.length === 0) {
-      return res.status(400).json({ error: 'Vocab file is empty' })
+    const sampleWords = (vocabData.words || []).slice(0, 100)
+    if (sampleWords.length === 0) {
+      return res.status(400).json({ error: '词库为空' })
     }
 
-    const normalizedWords = words.map((item) => normalizeWord(item.word))
     const existingWords = await prisma.word.findMany({
       where: {
-        userId,
-        word: { in: normalizedWords }
+        userId: req.userId!,
+        word: { in: sampleWords.map((item) => normalizeWord(item.word)) }
       }
     })
+    const existingWordSet = new Set(existingWords.map((item) => item.word))
 
-    const existingWordMap = new Map(existingWords.map((word) => [word.word, word.id]))
-    const toCreate = words.filter((item) => !existingWordMap.has(normalizeWord(item.word)))
-    const toUpdate = words.filter((item) => existingWordMap.has(normalizeWord(item.word)))
-
-    const [createResults, updateResults] = await Promise.all([
-      Promise.allSettled(
-        toCreate.map((item) =>
+    const createResults = await Promise.allSettled(
+      sampleWords
+        .filter((item) => !existingWordSet.has(normalizeWord(item.word)))
+        .map((item) =>
           prisma.word.create({
-            data: buildWordPayload(userId, vocabCode, item)
-          })
-        )
-      ),
-      Promise.allSettled(
-        toUpdate.map((item) =>
-          prisma.word.update({
-            where: { id: existingWordMap.get(normalizeWord(item.word))! },
             data: {
+              userId: req.userId!,
+              word: normalizeWord(item.word),
               phonetic: item.phonetic || '',
-              meanings: serialize(item.meanings),
-              examples: serialize(item.examples),
+              meanings: item.meanings ? JSON.stringify(item.meanings) : null,
+              examples: item.examples ? JSON.stringify(item.examples) : null,
               backgroundImage: item.backgroundImage || null,
               vocabSet: vocabCode,
-              tags: serialize(item.tags || [])
+              tags: item.tags ? JSON.stringify(item.tags) : JSON.stringify([]),
+              level: 0,
+              nextReview: new Date()
             }
           })
         )
-      )
-    ])
+    )
 
     const createdCount = createResults.filter((result) => result.status === 'fulfilled').length
-    const updatedCount = updateResults.filter((result) => result.status === 'fulfilled').length
 
     if (createdCount > 0) {
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: req.userId! },
         data: { totalWords: { increment: createdCount } }
       })
     }
 
     res.json({
-      message: `Imported ${createdCount + updatedCount} words`,
-      count: createdCount + updatedCount,
-      createdCount,
-      updatedCount,
-      vocabName: vocabData.name
+      message: `成功导入 ${createdCount} 个单词`,
+      count: createdCount,
+      vocabName: vocabData.name || vocabCode
     })
   } catch (error) {
-    console.error('Failed to import sample vocab:', error)
-    res.status(500).json({ error: 'Failed to import sample vocab' })
+    console.error('Failed to import vocabulary sample:', error)
+    res.status(500).json({ error: '导入词库失败' })
   }
 })
 

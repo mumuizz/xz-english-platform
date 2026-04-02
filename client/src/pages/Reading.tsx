@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import api from '../utils/api'
 
@@ -11,244 +11,211 @@ interface Article {
   source: string
   date: string
   level: 'beginner' | 'intermediate' | 'advanced'
-  tags: string[]
+  tags: string
+}
+
+const levelConfig = {
+  beginner: { label: '初级', color: '#10b981' },
+  intermediate: { label: '中级', color: '#f59e0b' },
+  advanced: { label: '高级', color: '#ef233c' }
 }
 
 export default function Reading() {
   const [articles, setArticles] = useState<Article[]>([])
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<string>('all')
+  const [filter, setFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all')
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
-    loadArticles()
+    void loadArticles()
   }, [])
 
   const loadArticles = async () => {
     try {
-      const res = await api.get('/articles')
+      setLoading(true)
+      const res = await api.get<Article[]>('/articles')
       setArticles(res.data)
-    } catch (e) {
-      console.error('Failed to load articles', e)
+    } catch (error) {
+      console.error('Failed to load articles', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const importFromPeopleDaily = async () => {
+  const importFullArticles = async () => {
     try {
+      setImporting(true)
       const res = await api.post('/articles/import-people-daily')
-      alert(`✅ ${res.data.message || '导入成功！'}`)
-      loadArticles()
-    } catch (e: any) {
-      alert(`❌ 导入失败：${e.response?.data?.error || '未知错误'}`)
+      alert(`${res.data.message}\n共导入 ${res.data.count} 篇整篇文章`)
+      await loadArticles()
+    } catch (error: any) {
+      alert(error?.response?.data?.error || '导入文章失败')
+    } finally {
+      setImporting(false)
     }
   }
 
-  const levelConfig = {
-    beginner: { label: '初级', icon: '🟢', color: '#10b981', bg: 'from-[#10b981]/10 to-transparent' },
-    intermediate: { label: '中级', icon: '🟡', color: '#f59e0b', bg: 'from-[#f59e0b]/10 to-transparent' },
-    advanced: { label: '高级', icon: '🔴', color: '#ef233c', bg: 'from-[#ef233c]/10 to-transparent' }
-  }
+  const filteredArticles = useMemo(
+    () => articles.filter((item) => filter === 'all' || item.level === filter),
+    [articles, filter]
+  )
 
-  const filterConfig = [
-    { key: 'all', label: '全部', icon: '📰', color: '#2b2d42' },
-    { key: 'beginner', label: '初级', icon: '🟢', color: '#10b981' },
-    { key: 'intermediate', label: '中级', icon: '🟡', color: '#f59e0b' },
-    { key: 'advanced', label: '高级', icon: '🔴', color: '#ef233c' }
-  ]
+  const paragraphCount = (content: string) =>
+    content
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean).length
 
   return (
     <div className="min-h-screen bg-[#edf2f4]">
       <Sidebar />
       <div className="ml-0 md:ml-72 p-6 lg:p-10">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <header className="mb-10 animate-fade-in">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-1 h-12 bg-[#ef233c] rounded-full" />
-                <div>
-                  <h1 className="text-4xl lg:text-5xl font-bold text-[#2b2d42] mb-2">📰 英语阅读</h1>
-                  <p className="text-lg text-[#8d99ae]">人民日报精选文章，提升阅读能力</p>
-                </div>
+        <div className="mx-auto max-w-6xl space-y-8">
+          <header className="rounded-3xl bg-white p-8 shadow-md">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-4xl font-bold text-[#2b2d42]">英语阅读</h1>
+                <p className="mt-3 max-w-3xl text-[#8d99ae]">
+                  这里改成了整篇文章阅读，不再只给摘要。每篇文章都包含完整英文正文和中文对照，适合做整篇理解和复述训练。
+                </p>
               </div>
-              <button 
-                onClick={importFromPeopleDaily} 
-                className="group relative bg-gradient-to-r from-[#ef233c] to-[#d91e36] hover:from-[#d91e36] hover:to-[#c41c30] text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+              <button
+                onClick={importFullArticles}
+                disabled={importing}
+                className={`rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition ${
+                  importing
+                    ? 'cursor-not-allowed bg-gray-400'
+                    : 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] hover:scale-[1.02]'
+                }`}
               >
-                <span className="flex items-center gap-2">
-                  📥 导入新文章
-                </span>
+                {importing ? '导入中...' : '导入整篇文章'}
               </button>
             </div>
           </header>
 
-          {/* Filter */}
-          <div className="group relative bg-white rounded-2xl p-4 shadow-md mb-8 animate-slide-in">
-            <div className="flex gap-2 flex-wrap">
-              {filterConfig.map((item) => (
+          <section className="rounded-3xl bg-white p-6 shadow-md">
+            <div className="flex flex-wrap gap-3">
+              {[
+                { key: 'all', label: '全部' },
+                { key: 'beginner', label: '初级' },
+                { key: 'intermediate', label: '中级' },
+                { key: 'advanced', label: '高级' }
+              ].map((item) => (
                 <button
                   key={item.key}
-                  onClick={() => setFilter(item.key)}
-                  className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ${
-                    filter === item.key 
-                      ? 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] text-white shadow-md scale-105' 
-                      : 'bg-[#f8f9fa] hover:bg-[#e9ecef] text-[#2b2d42]'
+                  onClick={() => setFilter(item.key as typeof filter)}
+                  className={`rounded-xl px-5 py-2.5 font-medium transition ${
+                    filter === item.key
+                      ? 'bg-gradient-to-r from-[#ef233c] to-[#d91e36] text-white shadow-md'
+                      : 'bg-[#f8f9fa] text-[#2b2d42] hover:bg-[#e9ecef]'
                   }`}
                 >
-                  {item.icon} {item.label}
+                  {item.label}
                 </button>
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* Articles Grid */}
           {loading ? (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-md animate-pulse">
-              <span className="text-5xl mb-4 block">📚</span>
-              <p className="text-[#8d99ae] text-lg">正在加载文章...</p>
+            <div className="rounded-3xl bg-white p-16 text-center shadow-md text-[#8d99ae]">正在加载文章...</div>
+          ) : filteredArticles.length === 0 ? (
+            <div className="rounded-3xl bg-white p-16 text-center shadow-md text-[#8d99ae]">
+              当前没有文章，先导入整篇阅读内容。
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-6 animate-slide-in delay-1">
-              {articles
-                .filter(a => filter === 'all' || a.level === filter)
-                .map((article, index) => (
-                  <div
-                    key={article.id}
-                    onClick={() => setSelectedArticle(article)}
-                    className="group relative bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-500 cursor-pointer overflow-hidden animate-scale-in"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${levelConfig[article.level].bg} rounded-bl-full -mr-8 -mt-8 transition-transform duration-500 group-hover:scale-110`} />
-                    
-                    <div className="relative">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-[#2b2d42] text-lg mb-2 line-clamp-2 group-hover:text-[#ef233c] transition-colors">
-                            {article.title}
-                          </h3>
-                          <p className="text-[#8d99ae] text-sm line-clamp-2">{article.titleZh}</p>
-                        </div>
-                        <span 
-                          className="ml-3 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                          style={{ 
-                            backgroundColor: `${levelConfig[article.level].color}15`,
-                            color: levelConfig[article.level].color
-                          }}
-                        >
-                          {levelConfig[article.level].icon} {levelConfig[article.level].label}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm text-[#8d99ae] pt-4 border-t border-[#e9ecef]">
-                        <span className="flex items-center gap-1">
-                          📅 {article.date}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          📰 {article.source}
-                        </span>
-                      </div>
-
-                      {/* Hover Arrow */}
-                      <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <svg className="w-6 h-6 text-[#ef233c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
+            <section className="grid gap-6 md:grid-cols-2">
+              {filteredArticles.map((article) => (
+                <button
+                  key={article.id}
+                  onClick={() => setSelectedArticle(article)}
+                  className="rounded-3xl bg-white p-6 text-left shadow-md transition hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-xl font-bold text-[#2b2d42]">{article.title}</div>
+                      <div className="mt-2 text-sm text-[#8d99ae]">{article.titleZh}</div>
                     </div>
-                  </div>
-                ))}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!loading && articles.filter(a => filter === 'all' || a.level === filter).length === 0 && (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-md">
-              <span className="text-6xl mb-4 block">📭</span>
-              <p className="text-[#8d99ae] text-lg mb-4">暂无文章</p>
-              <button 
-                onClick={importFromPeopleDaily}
-                className="bg-gradient-to-r from-[#ef233c] to-[#d91e36] text-white font-semibold px-6 py-3 rounded-xl"
-              >
-                📥 导入文章
-              </button>
-            </div>
-          )}
-
-          {/* Article Modal */}
-          {selectedArticle && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl w-full max-w-4xl my-8 shadow-2xl animate-scale-in max-h-[90vh] flex flex-col">
-                {/* Header */}
-                <div className="p-6 lg:p-8 border-b border-[#e9ecef] flex-shrink-0">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <h2 className="text-2xl lg:text-3xl font-bold text-[#2b2d42] mb-2">{selectedArticle.title}</h2>
-                      <p className="text-[#8d99ae]">{selectedArticle.titleZh}</p>
-                    </div>
-                    <button
-                      onClick={() => setSelectedArticle(null)}
-                      className="w-10 h-10 rounded-full bg-[#f8f9fa] hover:bg-[#e9ecef] flex items-center justify-center text-[#2b2d42] transition-all"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <span 
-                      className="px-3 py-1.5 rounded-full text-xs font-semibold"
-                      style={{ 
-                        backgroundColor: `${levelConfig[selectedArticle.level].color}15`,
-                        color: levelConfig[selectedArticle.level].color
+                    <span
+                      className="rounded-full px-3 py-1 text-xs font-semibold"
+                      style={{
+                        color: levelConfig[article.level].color,
+                        backgroundColor: `${levelConfig[article.level].color}15`
                       }}
                     >
-                      {levelConfig[selectedArticle.level].icon} {levelConfig[selectedArticle.level].label}
-                    </span>
-                    <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f8f9fa] text-[#2b2d42]">
-                      📰 {selectedArticle.source}
-                    </span>
-                    <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#f8f9fa] text-[#2b2d42]">
-                      📅 {selectedArticle.date}
+                      {levelConfig[article.level].label}
                     </span>
                   </div>
-                </div>
-                
-                {/* Content */}
-                <div className="p-6 lg:p-8 overflow-y-auto flex-1">
-                  <div className="mb-6">
-                    <h3 className="font-bold text-[#2b2d42] mb-3 flex items-center gap-2 text-lg">
-                      <span>🇬🇧</span> 英文原文
-                    </h3>
-                    <div className="prose max-w-none bg-[#f8f9fa] rounded-xl p-6">
-                      <p className="text-[#2b2d42] leading-relaxed whitespace-pre-wrap text-base lg:text-lg">
-                        {selectedArticle.content}
-                      </p>
+
+                  <div className="mt-5 line-clamp-4 text-sm leading-7 text-[#4b5563]">
+                    {article.content}
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-xl bg-[#f8f9fa] p-3">
+                      <div className="text-[#8d99ae]">段落数</div>
+                      <div className="mt-1 font-bold text-[#2b2d42]">{paragraphCount(article.content)}</div>
+                    </div>
+                    <div className="rounded-xl bg-[#f8f9fa] p-3">
+                      <div className="text-[#8d99ae]">来源</div>
+                      <div className="mt-1 font-bold text-[#2b2d42]">{article.source}</div>
+                    </div>
+                    <div className="rounded-xl bg-[#f8f9fa] p-3">
+                      <div className="text-[#8d99ae]">日期</div>
+                      <div className="mt-1 font-bold text-[#2b2d42]">{article.date}</div>
                     </div>
                   </div>
-                  
-                  {selectedArticle.contentZh && (
-                    <div className="">
-                      <h3 className="font-bold text-[#2b2d42] mb-3 flex items-center gap-2 text-lg">
-                        <span>🇨🇳</span> 中文翻译
-                      </h3>
-                      <div className="prose max-w-none bg-gradient-to-br from-[#ef233c]/5 to-transparent rounded-xl p-6 border border-[#ef233c]/20">
-                        <p className="text-[#2b2d42] leading-relaxed whitespace-pre-wrap text-base lg:text-lg">
-                          {selectedArticle.contentZh}
-                        </p>
-                      </div>
+                </button>
+              ))}
+            </section>
+          )}
+
+          {selectedArticle && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+              <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-3xl bg-white shadow-2xl">
+                <div className="flex items-start justify-between border-b border-[#e9ecef] p-6 lg:p-8">
+                  <div className="max-w-3xl">
+                    <h2 className="text-3xl font-bold text-[#2b2d42]">{selectedArticle.title}</h2>
+                    <p className="mt-2 text-[#8d99ae]">{selectedArticle.titleZh}</p>
+                    <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                      <span
+                        className="rounded-full px-3 py-1 font-semibold"
+                        style={{
+                          color: levelConfig[selectedArticle.level].color,
+                          backgroundColor: `${levelConfig[selectedArticle.level].color}15`
+                        }}
+                      >
+                        {levelConfig[selectedArticle.level].label}
+                      </span>
+                      <span className="rounded-full bg-[#f8f9fa] px-3 py-1 font-semibold text-[#2b2d42]">
+                        {selectedArticle.source}
+                      </span>
+                      <span className="rounded-full bg-[#f8f9fa] px-3 py-1 font-semibold text-[#2b2d42]">
+                        {selectedArticle.date}
+                      </span>
                     </div>
-                  )}
+                  </div>
+                  <button
+                    onClick={() => setSelectedArticle(null)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f8f9fa] text-[#2b2d42] transition hover:bg-[#e9ecef]"
+                  >
+                    X
+                  </button>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-6 border-t border-[#e9ecef] bg-[#f8f9fa] rounded-b-3xl flex-shrink-0">
-                  <div className="flex gap-3">
-                    <button className="flex-1 bg-gradient-to-r from-[#ef233c] to-[#d91e36] hover:from-[#d91e36] hover:to-[#c41c30] text-white font-semibold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl">
-                      🔊 朗读文章
-                    </button>
-                    <button className="flex-1 bg-white hover:bg-[#e9ecef] text-[#2b2d42] font-semibold py-4 rounded-xl transition-all border-2 border-[#e9ecef]">
-                      📝 添加生词
-                    </button>
+                <div className="grid flex-1 gap-6 overflow-y-auto p-6 lg:grid-cols-2 lg:p-8">
+                  <div>
+                    <h3 className="mb-4 text-lg font-bold text-[#2b2d42]">英文整篇</h3>
+                    <div className="rounded-2xl bg-[#f8f9fa] p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">
+                      {selectedArticle.content}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-4 text-lg font-bold text-[#2b2d42]">中文对照</h3>
+                    <div className="rounded-2xl border border-[#ef233c]/20 bg-gradient-to-br from-[#ef233c]/5 to-transparent p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">
+                      {selectedArticle.contentZh || '暂无中文对照'}
+                    </div>
                   </div>
                 </div>
               </div>

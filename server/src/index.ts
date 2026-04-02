@@ -1,6 +1,6 @@
-import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import express from 'express'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/user.js'
 import checkInRoutes from './routes/checkin.js'
@@ -15,11 +15,9 @@ dotenv.config()
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
 
-// 中间件
 app.use(cors())
 app.use(express.json())
 
-// 路由
 app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/checkin', checkInRoutes)
@@ -28,27 +26,24 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/articles', articleRoutes)
 app.use('/api/listening', listeningRoutes)
 
-// 健康检查
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: '肖战英语学习平台 API 运行中 💖' })
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', message: 'English platform API is running.' })
 })
 
-// 错误处理
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err.stack)
   res.status(500).json({ error: '服务器内部错误' })
 })
 
-// 启动服务器并初始化数据
 async function startServer() {
-  // 初始化数据（词库、文章、听力）
   await initializeData()
-  
+
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
-    console.log(`💖 肖战粉丝英语学习平台 API 已启动！`)
-    console.log(`📚 词库、文章、听力已自动加载，无需手动导入！`)
+    console.log(`Server running at http://localhost:${PORT}`)
+    console.log('Word, reading, and listening modules are ready.')
   })
 }
 
-startServer().catch(console.error)
+startServer().catch((error) => {
+  console.error('Failed to start server:', error)
+})
