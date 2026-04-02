@@ -14,10 +14,65 @@ interface Article {
   tags: string
 }
 
+interface CandidateWord {
+  word: string
+  sentence: string
+}
+
 const levelConfig = {
   beginner: { label: '初级', color: '#10b981' },
   intermediate: { label: '中级', color: '#f59e0b' },
   advanced: { label: '高级', color: '#ef233c' }
+}
+
+const STOP_WORDS = new Set([
+  'about', 'after', 'again', 'also', 'among', 'because', 'before', 'being', 'between', 'could', 'during',
+  'every', 'first', 'found', 'from', 'have', 'into', 'itself', 'later', 'many', 'might', 'more', 'most',
+  'other', 'people', 'should', 'their', 'there', 'these', 'they', 'through', 'under', 'using', 'while',
+  'with', 'would', 'which', 'where', 'those', 'than', 'when', 'what', 'this', 'that'
+])
+
+const extractCandidateWords = (article: Article | null): CandidateWord[] => {
+  if (!article) {
+    return []
+  }
+
+  const sentenceList = article.content
+    .replace(/\n+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  const seen = new Set<string>()
+  const candidates: CandidateWord[] = []
+
+  for (const sentence of sentenceList) {
+    const words = sentence.match(/[A-Za-z][A-Za-z'-]{4,}/g) || []
+
+    for (const rawWord of words) {
+      const normalized = rawWord.toLowerCase()
+
+      if (STOP_WORDS.has(normalized)) {
+        continue
+      }
+
+      if (seen.has(normalized)) {
+        continue
+      }
+
+      seen.add(normalized)
+      candidates.push({
+        word: normalized,
+        sentence
+      })
+
+      if (candidates.length >= 12) {
+        return candidates
+      }
+    }
+  }
+
+  return candidates
 }
 
 export default function Reading() {
@@ -26,6 +81,8 @@ export default function Reading() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all')
   const [importing, setImporting] = useState(false)
+  const [addingWords, setAddingWords] = useState<Record<string, boolean>>({})
+  const [addedWords, setAddedWords] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     void loadArticles()
@@ -61,11 +118,57 @@ export default function Reading() {
     [articles, filter]
   )
 
+  const candidateWords = useMemo(
+    () => extractCandidateWords(selectedArticle),
+    [selectedArticle]
+  )
+
   const paragraphCount = (content: string) =>
     content
       .split('\n')
       .map((item) => item.trim())
       .filter(Boolean).length
+
+  const addWordToNotebook = async (candidate: CandidateWord) => {
+    if (!selectedArticle) {
+      return
+    }
+
+    try {
+      setAddingWords((prev) => ({ ...prev, [candidate.word]: true }))
+
+      await api.post('/words', {
+        word: candidate.word,
+        phonetic: '',
+        meanings: [
+          {
+            pos: 'article',
+            definitions: [`来自阅读文章：${selectedArticle.titleZh}`]
+          }
+        ],
+        examples: [
+          {
+            en: candidate.sentence,
+            zh: `摘自文章：${selectedArticle.titleZh}`
+          }
+        ],
+        vocabSet: 'reading-articles',
+        tags: ['reading', selectedArticle.level, selectedArticle.title]
+      })
+
+      setAddedWords((prev) => ({ ...prev, [candidate.word]: true }))
+    } catch (error: any) {
+      const status = error?.response?.status
+      if (status === 409) {
+        setAddedWords((prev) => ({ ...prev, [candidate.word]: true }))
+        return
+      }
+
+      alert(error?.response?.data?.error || `加入单词本失败：${candidate.word}`)
+    } finally {
+      setAddingWords((prev) => ({ ...prev, [candidate.word]: false }))
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#edf2f4]">
@@ -77,7 +180,7 @@ export default function Reading() {
               <div>
                 <h1 className="text-4xl font-bold text-[#2b2d42]">英语阅读</h1>
                 <p className="mt-3 max-w-3xl text-[#8d99ae]">
-                  这里改成了整篇文章阅读，不再只给摘要。每篇文章都包含完整英文正文和中文对照，适合做整篇理解和复述训练。
+                  当前页面使用整篇文章阅读模式，并支持从文章里直接抽取生词加入单词本，减少阅读和背词之间的来回切换。
                 </p>
               </div>
               <button
@@ -118,17 +221,18 @@ export default function Reading() {
           </section>
 
           {loading ? (
-            <div className="rounded-3xl bg-white p-16 text-center shadow-md text-[#8d99ae]">正在加载文章...</div>
+            <div className="rounded-3xl bg-white p-16 text-center text-[#8d99ae] shadow-md">正在加载文章...</div>
           ) : filteredArticles.length === 0 ? (
-            <div className="rounded-3xl bg-white p-16 text-center shadow-md text-[#8d99ae]">
-              当前没有文章，先导入整篇阅读内容。
-            </div>
+            <div className="rounded-3xl bg-white p-16 text-center text-[#8d99ae] shadow-md">当前没有文章，先导入整篇阅读内容。</div>
           ) : (
             <section className="grid gap-6 md:grid-cols-2">
               {filteredArticles.map((article) => (
                 <button
                   key={article.id}
-                  onClick={() => setSelectedArticle(article)}
+                  onClick={() => {
+                    setSelectedArticle(article)
+                    setAddedWords({})
+                  }}
                   className="rounded-3xl bg-white p-6 text-left shadow-md transition hover:-translate-y-1 hover:shadow-xl"
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -147,9 +251,7 @@ export default function Reading() {
                     </span>
                   </div>
 
-                  <div className="mt-5 line-clamp-4 text-sm leading-7 text-[#4b5563]">
-                    {article.content}
-                  </div>
+                  <div className="mt-5 line-clamp-4 text-sm leading-7 text-[#4b5563]">{article.content}</div>
 
                   <div className="mt-6 grid grid-cols-3 gap-3 text-sm">
                     <div className="rounded-xl bg-[#f8f9fa] p-3">
@@ -172,7 +274,7 @@ export default function Reading() {
 
           {selectedArticle && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-              <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-3xl bg-white shadow-2xl">
+              <div className="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-3xl bg-white shadow-2xl">
                 <div className="flex items-start justify-between border-b border-[#e9ecef] p-6 lg:p-8">
                   <div className="max-w-3xl">
                     <h2 className="text-3xl font-bold text-[#2b2d42]">{selectedArticle.title}</h2>
@@ -203,7 +305,7 @@ export default function Reading() {
                   </button>
                 </div>
 
-                <div className="grid flex-1 gap-6 overflow-y-auto p-6 lg:grid-cols-2 lg:p-8">
+                <div className="grid flex-1 gap-6 overflow-y-auto p-6 lg:grid-cols-[1fr,1fr,0.8fr] lg:p-8">
                   <div>
                     <h3 className="mb-4 text-lg font-bold text-[#2b2d42]">英文整篇</h3>
                     <div className="rounded-2xl bg-[#f8f9fa] p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">
@@ -215,6 +317,36 @@ export default function Reading() {
                     <h3 className="mb-4 text-lg font-bold text-[#2b2d42]">中文对照</h3>
                     <div className="rounded-2xl border border-[#ef233c]/20 bg-gradient-to-br from-[#ef233c]/5 to-transparent p-6 text-base leading-8 text-[#2b2d42] whitespace-pre-wrap">
                       {selectedArticle.contentZh || '暂无中文对照'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-4 text-lg font-bold text-[#2b2d42]">文章生词</h3>
+                    <div className="space-y-3">
+                      {candidateWords.map((candidate) => (
+                        <div key={candidate.word} className="rounded-2xl border border-[#e9ecef] bg-white p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-lg font-bold text-[#2b2d42]">{candidate.word}</div>
+                            <button
+                              onClick={() => void addWordToNotebook(candidate)}
+                              disabled={Boolean(addingWords[candidate.word] || addedWords[candidate.word])}
+                              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                                addedWords[candidate.word]
+                                  ? 'cursor-not-allowed bg-[#10b981] text-white'
+                                  : addingWords[candidate.word]
+                                    ? 'cursor-not-allowed bg-gray-300 text-white'
+                                    : 'bg-[#2b2d42] text-white hover:bg-[#1f2233]'
+                              }`}
+                            >
+                              {addedWords[candidate.word] ? '已加入' : addingWords[candidate.word] ? '加入中...' : '加入单词本'}
+                            </button>
+                          </div>
+                          <div className="mt-3 text-sm leading-6 text-[#8d99ae]">{candidate.sentence}</div>
+                        </div>
+                      ))}
+                      {candidateWords.length === 0 && (
+                        <div className="rounded-2xl bg-[#f8f9fa] p-6 text-sm text-[#8d99ae]">当前文章没有提取到可加入的生词。</div>
+                      )}
                     </div>
                   </div>
                 </div>
