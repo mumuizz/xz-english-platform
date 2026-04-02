@@ -1,0 +1,120 @@
+{
+  "name": "自考商务英语词汇",
+  "code": "business",
+  "words": [
+    {
+      "id": 1,
+      "word": "acquisition",
+      "phonetic": "ˌækwɪˈzɪʃn",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["收购", "并购", "获得", "习得"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The company announced a major acquisition.",
+          "zh": "公司宣布了一项重大收购。"
+        },
+        {
+          "en": "Language acquisition is a complex process.",
+          "zh": "语言习得是一个复杂的过程。"
+        }
+      ],
+      "tags": ["business", "商务英语"]
+    },
+    {
+      "id": 2,
+      "word": "budget",
+      "phonetic": "ˈbʌdʒɪt",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["预算", "经费", "开支"]
+        },
+        {
+          "pos": "动词",
+          "definitions": ["编预算", "规划开支"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "We need to stay within budget.",
+          "zh": "我们需要控制在预算内。"
+        },
+        {
+          "en": "The project was completed on budget.",
+          "zh": "项目在预算内完成了。"
+        }
+      ],
+      "tags": ["business", "高频"]
+    },
+    {
+      "id": 3,
+      "word": "diversify",
+      "phonetic": "daɪˈvɜːsɪfaɪ",
+      "meanings": [
+        {
+          "pos": "动词",
+          "definitions": ["多样化", "使多元化", "分散投资"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The company plans to diversify its product line.",
+          "zh": "公司计划使其产品线多样化。"
+        },
+        {
+          "en": "Investors should diversify their portfolios.",
+          "zh": "投资者应该分散投资组合。"
+        }
+      ],
+      "tags": ["business", "投资"]
+    },
+    {
+      "id": 4,
+      "word": "equity",
+      "phonetic": "ˈekwəti",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["股权", "权益", "公平", "公正"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "She has a 20% equity in the business.",
+          "zh": "她在这家企业拥有 20% 的股权。"
+        },
+        {
+          "en": "The company promotes equity and diversity.",
+          "zh": "公司提倡公平和多元化。"
+        }
+      ],
+      "tags": ["business", "金融"]
+    },
+    {
+      "id": 5,
+      "word": "merger",
+      "phonetic": "ˈmɜːdʒər",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["合并", "兼并", "归并"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The merger was approved by shareholders.",
+          "zh": "合并获得了股东批准。"
+        },
+        {
+          "en": "The merger created the largest bank in the country.",
+          "zh": "这次合并创造了该国最大的银行。"
+        }
+      ],
+      "tags": ["business", "商务英语"]
+    }
+  ]
+}

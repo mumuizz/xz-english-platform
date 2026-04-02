@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>听力测试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #e74c3c; }
+        .item { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; }
+        .item h3 { margin: 0 0 10px 0; color: #333; }
+        .item p { margin: 5px 0; color: #666; }
+        .badge { display: inline-block; padding: 3px 8px; background: #e74c3c; color: white; border-radius: 3px; font-size: 12px; }
+        audio { width: 100%; margin-top: 10px; }
+        .error { background: #fee; color: #c00; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #efe; color: #0a0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎧 听力测试页面</h1>
+        <div id="status"></div>
+        <div id="content"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://47.112.214.223:3001/api';
+        
+        async function test() {
+            const statusDiv = document.getElementById('status');
+            const contentDiv = document.getElementById('content');
+            
+            try {
+                statusDiv.innerHTML = '<div class="success">正在加载听力数据...</div>';
+                
+                // 先登录获取 token
+                const loginRes = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'demo', password: 'demo123' })
+                });
+                
+                if (!loginRes.ok) {
+                    throw new Error(`登录失败：${loginRes.status}`);
+                }
+                
+                const loginData = await loginRes.json();
+                const token = loginData.token;
+                
+                statusDiv.innerHTML = '<div class="success">✅ 登录成功！正在获取听力材料...</div>';
+                
+                // 获取听力材料
+                const res = await fetch(`${API_BASE}/listening`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!res.ok) {
+                    throw new Error(`API 请求失败：${res.status}`);
+                }
+                
+                const materials = await res.json();
+                
+                if (materials.length === 0) {
+                    contentDiv.innerHTML = '<div class="error">暂无听力材料</div>';
+                    return;
+                }
+                
+                contentDiv.innerHTML = `<div class="success">✅ 成功加载 ${materials.length} 个听力材料！</div>`;
+                
+                materials.forEach(m => {
+                    const item = document.createElement('div');
+                    item.className = 'item';
+                    item.innerHTML = `
+                        <h3>${m.title}</h3>
+                        <p>${m.titleZh || ''}</p>
+                        <p><span class="badge">${m.level}</span> <span class="badge">${m.type}</span> ⏱️ ${Math.floor(m.duration / 60)}:${(m.duration % 60).toString().padStart(2, '0')}</p>
+                        <audio controls src="${m.audioUrl}"></audio>
+                        ${m.transcript ? `<details style="margin-top:10px;"><summary>查看原文</summary><pre style="background:#f9f9f9;padding:10px;border-radius:4px;white-space:pre-wrap;">${m.transcript}</pre></details>` : ''}
+                    `;
+                    contentDiv.appendChild(item);
+                });
+                
+            } catch (err) {
+                statusDiv.innerHTML = `<div class="error">❌ 错误：${err.message}</div>`;
+                console.error(err);
+            }
+        }
+        
+        test();
+    </script>
+</body>
+</html>

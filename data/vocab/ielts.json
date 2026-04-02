@@ -1,0 +1,112 @@
+{
+  "name": "雅思词汇",
+  "code": "ielts",
+  "words": [
+    {
+      "id": 1,
+      "word": "abundant",
+      "phonetic": "əˈbʌndənt",
+      "meanings": [
+        {
+          "pos": "形容词",
+          "definitions": ["丰富的", "充裕的", "大量的"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The country has abundant natural resources.",
+          "zh": "这个国家拥有丰富的自然资源。"
+        },
+        {
+          "en": "There is abundant evidence to support this theory.",
+          "zh": "有充分的证据支持这一理论。"
+        }
+      ],
+      "tags": ["ielts", "高频"]
+    },
+    {
+      "id": 2,
+      "word": "coherent",
+      "phonetic": "kəʊˈhɪərənt",
+      "meanings": [
+        {
+          "pos": "形容词",
+          "definitions": ["连贯的", "一致的", "清晰的"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "She presented a coherent argument.",
+          "zh": "她提出了一个连贯的论点。"
+        },
+        {
+          "en": "The essay lacks a coherent structure.",
+          "zh": "这篇文章缺乏连贯的结构。"
+        }
+      ],
+      "tags": ["ielts", "写作"]
+    },
+    {
+      "id": 3,
+      "word": "fluctuate",
+      "phonetic": "ˈflktʃueɪt",
+      "meanings": [
+        {
+          "pos": "动词",
+          "definitions": ["波动", "起伏", "变动"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Prices fluctuate according to demand.",
+          "zh": "价格根据需求波动。"
+        },
+        {
+          "en": "His mood fluctuates wildly.",
+          "zh": "他的情绪波动很大。"
+        }
+      ],
+      "tags": ["ielts", "图表作文"]
+    },
+    {
+      "id": 4,
+      "word": "inevitable",
+      "phonetic": "ɪnˈevɪtəbl",
+      "meanings": [
+        {
+          "pos": "形容词",
+          "definitions": ["不可避免的", "必然的"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Change is inevitable in life.",
+          "zh": "生活中变化是不可避免的。"
+        },
+        {
+          "en": "The conflict was inevitable.",
+          "zh": "冲突是不可避免的。"
+        }
+      ],
+      "tags": ["ielts", "高频"]
+    },
+    {
+      "id": 5,
+      "word": "paradox",
+      "phonetic": "ˈpærədɒks",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["悖论", "自相矛盾的人或事", "反论"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "It's a paradox that he's rich but unhappy.",
+          "zh": "他很富有却不快乐，这是个悖论。"
+        }
+      ],
+      "tags": ["ielts", "阅读"]
+    }
+  ]
+}

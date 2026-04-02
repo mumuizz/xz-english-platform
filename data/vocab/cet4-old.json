@@ -1,0 +1,125 @@
+{
+  "name": "大学英语四级词汇",
+  "code": "cet4",
+  "words": [
+    {
+      "id": 1,
+      "word": "award",
+      "phonetic": "əˈwɔːd",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["奖，奖品", "裁定", "奖学金"]
+        },
+        {
+          "pos": "动词",
+          "definitions": ["授予", "判给", "给予"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Xiao Zhan won the Best Actor award at SMG TV Drama Quality Awards!",
+          "zh": "肖战在 SMG 电视剧品质盛典上获得最佳男演员奖！",
+          "speaker": "肖战专属"
+        },
+        {
+          "en": "The judge awarded the prize to the winner.",
+          "zh": "法官将奖品判给了获胜者。"
+        }
+      ],
+      "tags": ["cet4", "高频"]
+    },
+    {
+      "id": 2,
+      "word": "achieve",
+      "phonetic": "əˈtʃiːv",
+      "meanings": [
+        {
+          "pos": "动词",
+          "definitions": ["实现", "达到", "完成", "成功"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "She worked hard to achieve her goals.",
+          "zh": "她努力工作以实现自己的目标。"
+        },
+        {
+          "en": "He achieved success through persistence.",
+          "zh": "他通过坚持取得了成功。"
+        }
+      ],
+      "tags": ["cet4", "高频"]
+    },
+    {
+      "id": 3,
+      "word": "benefit",
+      "phonetic": "ˈbenɪfɪt",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["利益，好处", "救济金", "津贴"]
+        },
+        {
+          "pos": "动词",
+          "definitions": ["有益于", "受益"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Regular exercise has many health benefits.",
+          "zh": "定期锻炼对健康有很多好处。"
+        },
+        {
+          "en": "Both sides will benefit from the agreement.",
+          "zh": "双方都将从协议中受益。"
+        }
+      ],
+      "tags": ["cet4", "高频"]
+    },
+    {
+      "id": 4,
+      "word": "challenge",
+      "phonetic": "ˈtʃælɪndʒ",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["挑战", "难题", "质疑"]
+        },
+        {
+          "pos": "动词",
+          "definitions": ["向...挑战", "质疑", "考验"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Learning English is a big challenge for me.",
+          "zh": "学习英语对我来说是一个巨大的挑战。"
+        },
+        {
+          "en": "She challenged him to a debate.",
+          "zh": "她向他提出辩论挑战。"
+        }
+      ],
+      "tags": ["cet4", "高频"]
+    },
+    {
+      "id": 5,
+      "word": "decade",
+      "phonetic": "ˈdekeɪd",
+      "meanings": [
+        {
+          "pos": "名词",
+          "definitions": ["十年", "十年期"]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The technology has changed dramatically over the past decade.",
+          "zh": "这项技术在过去十年里发生了巨大变化。"
+        }
+      ],
+      "tags": ["cet4"]
+    }
+  ]
+}

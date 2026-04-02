@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  password     String
+  nickname     String   @default("小粉丝")
+  avatar       String   @default("📚")
+  bio          String?
+  level        Int      @default(1)
+  totalWords   Int      @default(0)
+  checkInDays  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  checkIns     CheckIn[]
+  words        Word[]
+  settings     Settings?
+}
+
+model CheckIn {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  completed Boolean  @default(true)
+  words     Int      @default(0)
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+model Word {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word           String
+  phonetic       String?
+  meanings       String?  // JSON: [{pos: "名词", definitions: ["定义 1", "定义 2"]}]
+  examples       String?  // JSON: [{en: "英文例句", zh: "中文翻译", speaker?: "肖战专属"}]
+  backgroundImage String?
+  vocabSet       String?  // 词库标识：cet4, ielts, business, selfstudy
+  tags           String?  // JSON: ["高频", "阅读"]
+  level          Int      @default(0)
+  nextReview     DateTime
+  addedDate      DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Article {
+  id          Int      @id @default(autoincrement())
+  title       String
+  titleZh     String?
+  content     String
+  contentZh   String?
+  source      String   @default("People's Daily")
+  date        String
+  level       String   @default("intermediate")
+  tags        String?  // JSON: ["政治", "经济"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Listening {
+  id          Int      @id @default(autoincrement())
+  title       String
+  titleZh     String?
+  audioUrl    String
+  transcript  String?
+  transcriptZh String?
+  duration    Int      // 秒
+  level       String   @default("intermediate")
+  type        String   // news, dialogue, lecture, story
+  tags        String?  // JSON: ["VOA", "慢速"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Settings {
+  id            Int     @id @default(autoincrement())
+  userId        Int     @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyReminder Boolean @default(true)
+  reminderTime  String  @default("09:00")
+  darkMode      Boolean @default(false)
+  soundEnabled  Boolean @default(true)
+  reviewCount   Int     @default(20)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
