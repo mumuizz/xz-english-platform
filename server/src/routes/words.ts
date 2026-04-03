@@ -8,6 +8,7 @@ const router = Router()
 
 const EBBINGHAUS_INTERVALS = [0.5, 1, 6, 24, 48, 96, 168, 336]
 const VOCAB_DIR = path.resolve(process.cwd(), '../data/vocab')
+const MIN_VOCAB_WORDS = 1000
 
 type VocabularyWord = {
   word: string
@@ -69,6 +70,9 @@ const loadVocabularyFile = (code: string): VocabularyFile | null => {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as VocabularyFile
 }
 
+const getVocabularyWordCount = (data: VocabularyFile | null) =>
+  Array.isArray(data?.words) ? data.words.length : 0
+
 router.get('/vocab-library', authMiddleware, async (_req: AuthRequest, res) => {
   try {
     const files = fs
@@ -90,6 +94,7 @@ router.get('/vocab-library', authMiddleware, async (_req: AuthRequest, res) => {
           count: words.length
         }
       })
+      .filter((item) => item.count >= MIN_VOCAB_WORDS)
       .sort((a, b) => b.count - a.count)
 
     res.json(library)
@@ -369,6 +374,10 @@ router.post('/import-batch', authMiddleware, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: '词库为空' })
     }
 
+    if (words.length < MIN_VOCAB_WORDS) {
+      return res.status(400).json({ error: `词库词量不足，当前仅 ${words.length} 个，至少需要 ${MIN_VOCAB_WORDS} 个单词` })
+    }
+
     const highFrequencyCount = words.filter((item) => isHighFrequencyWord(item.tags)).length
 
     let createdCount = 0
@@ -469,6 +478,12 @@ router.post('/import-sample', authMiddleware, async (req: AuthRequest, res) => {
     const sampleWords = (vocabData.words || []).slice(0, 100)
     if (sampleWords.length === 0) {
       return res.status(400).json({ error: '词库为空' })
+    }
+
+    if (getVocabularyWordCount(vocabData) < MIN_VOCAB_WORDS) {
+      return res.status(400).json({
+        error: `词库词量不足，当前仅 ${getVocabularyWordCount(vocabData)} 个，至少需要 ${MIN_VOCAB_WORDS} 个单词`
+      })
     }
 
     const existingWords = await prisma.word.findMany({

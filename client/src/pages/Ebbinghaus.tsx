@@ -8,6 +8,7 @@ import api from '../utils/api'
 import type { WordRecord, ParsedWord, VocabLibraryItem, VocabStats } from '../types'
 
 type WordFilter = 'all' | 'high-frequency'
+const MIN_VOCAB_WORDS = 1000
 
 const parseWord = (word: WordRecord): ParsedWord => {
   try {
@@ -144,6 +145,7 @@ export default function Ebbinghaus() {
           <div>
             <h1 className="text-4xl font-bold text-[#2b2d42]">单词记忆</h1>
             <p className="mt-3 max-w-2xl text-[#8d99ae]">当前页面支持整本词库导入。导入后会保留词条标签，并单独标识高频单词，方便优先记忆。</p>
+            <p className="mt-2 max-w-2xl text-sm text-[#8d99ae]">当前仅展示词量不少于 {MIN_VOCAB_WORDS} 的大词库，避免再出现几十词的小词库。</p>
           </div>
           <button
             onClick={importWholeVocab}
