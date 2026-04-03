@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
+import Layout from '../components/Layout'
 import api from '../utils/api'
 
 interface CheckInRecord {
@@ -67,10 +67,7 @@ export default function CheckIn() {
   const completedCount = calendar.filter(d => d.completed).length
 
   return (
-    <div className="min-h-screen bg-[#edf2f4]">
-      <Sidebar />
-      <div className="ml-0 md:ml-72 p-6 lg:p-10">
-        <div className="max-w-5xl mx-auto">
+    <Layout maxWidth="max-w-5xl">
           {/* Header */}
           <header className="mb-10 animate-fade-in">
             <div className="flex items-center gap-3 mb-4">
@@ -255,8 +252,6 @@ export default function CheckIn() {
               </div>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+    </Layout>
   )
 }

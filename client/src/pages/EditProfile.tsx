@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
+import Layout from '../components/Layout'
 import api from '../utils/api'
 
 interface User {
@@ -68,10 +68,7 @@ export default function EditProfile() {
   const avatars = ['📚', '⭐', '💖', '🎯', '🌟', '✨', '🔥', '💪']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-xz-warm">
-      <Sidebar />
-      <div className="ml-0 md:ml-64 p-6">
-        <div className="max-w-2xl mx-auto">
+    <Layout maxWidth="max-w-2xl">
           <h1 className="text-3xl font-bold text-xz-red mb-6">✏️ 编辑资料</h1>
 
           <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -158,8 +155,6 @@ export default function EditProfile() {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Layout>
   )
 }

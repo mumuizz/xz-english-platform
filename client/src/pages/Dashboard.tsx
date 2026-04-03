@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
+import Layout from '../components/Layout'
 import api from '../utils/api'
 
 interface Stats {
@@ -32,10 +32,7 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#edf2f4]">
-      <Sidebar />
-      <div className="ml-0 md:ml-72 p-6 lg:p-10">
-        <div className="max-w-7xl mx-auto">
+    <Layout maxWidth="max-w-7xl">
           {/* Hero Section */}
           <header className="mb-10 animate-fade-in">
             <div className="flex items-center gap-3 mb-4">
@@ -185,8 +182,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Layout>
   )
 }

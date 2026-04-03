@@ -1,17 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import api from '../utils/api'
 
-interface LoginProps {
-  setIsLoggedIn: (loggedIn: boolean) => void
-}
-
-export default function Login({ setIsLoggedIn }: LoginProps) {
+export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isRegister, setIsRegister] = useState(false)
   const navigate = useNavigate()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,10 +18,7 @@ export default function Login({ setIsLoggedIn }: LoginProps) {
     try {
       const endpoint = isRegister ? '/auth/register' : '/auth/login'
       const response = await api.post(endpoint, { username, password })
-      
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-      setIsLoggedIn(true)
+      login(response.data.token, response.data.user)
       navigate('/')
     } catch (err: any) {
       setError(err.response?.data?.error || '操作失败，请重试')

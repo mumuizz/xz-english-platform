@@ -1,22 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-
-interface User {
-  nickname: string
-  avatar: string
-}
+import { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const { user, logout } = useAuth()
   const location = useLocation()
-
-  useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      setUser(JSON.parse(userData))
-    }
-  }, [])
 
   const menuItems = [
     { title: '首页', path: '/', icon: '🏠', subtitle: 'Dashboard' },
@@ -27,12 +16,6 @@ export default function Sidebar() {
     { title: '英语听力', path: '/listening', icon: '🎧', subtitle: 'Listening' },
     { title: '设置', path: '/settings', icon: '⚙️', subtitle: 'Settings' },
   ]
-
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    window.location.href = '/login'
-  }
 
   const isActive = (path: string) => location.pathname === path
 
@@ -78,7 +61,7 @@ export default function Sidebar() {
               <p className="text-xs text-[#8d99ae] font-medium tracking-wide">English 动力</p>
             </div>
           </div>
-          
+
           {/* User Progress Indicator */}
           <div className="bg-[#edf2f4] rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -127,8 +110,8 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer - User Profile */}
-        <Link 
-          to="/edit-profile" 
+        <Link
+          to="/edit-profile"
           className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#edf2f4] to-transparent"
         >
           <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-white transition-all duration-300 group cursor-pointer">
@@ -148,7 +131,7 @@ export default function Sidebar() {
         {/* Logout Button - Fixed at bottom */}
         <div className="absolute bottom-24 left-4 right-4">
           <button
-            onClick={handleLogout}
+            onClick={logout}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[#ef233c] hover:bg-[#ef233c]/10 rounded-xl transition-all duration-300 font-semibold text-sm"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

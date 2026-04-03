@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import Sidebar from '../components/Sidebar'
+import Layout from '../components/Layout'
 import api from '../utils/api'
 
 interface User {
@@ -39,19 +39,18 @@ export default function Profile() {
   ]
 
   if (!user) return (
-    <div className="min-h-screen bg-[#edf2f4] flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-4xl mb-4 animate-pulse">✨</div>
-        <p className="text-[#8d99ae]">加载中...</p>
+    <Layout>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-pulse">✨</div>
+          <p className="text-[#8d99ae]">加载中...</p>
+        </div>
       </div>
-    </div>
+    </Layout>
   )
 
   return (
-    <div className="min-h-screen bg-[#edf2f4]">
-      <Sidebar />
-      <div className="ml-0 md:ml-72 p-6 lg:p-10">
-        <div className="max-w-6xl mx-auto">
+    <Layout>
           {/* Header */}
           <header className="mb-10 animate-fade-in">
             <div className="flex items-center gap-3 mb-4">
@@ -181,8 +180,6 @@ export default function Profile() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Layout>
   )
 }

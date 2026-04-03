@@ -1,5 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
@@ -11,36 +12,22 @@ import Reading from './pages/Reading'
 import Listening from './pages/Listening'
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('token')
-  })
-
-  useEffect(() => {
-    const checkAuth = () => {
-      setIsLoggedIn(!!localStorage.getItem('token'))
-    }
-    window.addEventListener('storage', checkAuth)
-    return () => window.removeEventListener('storage', checkAuth)
-  }, [])
-
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    return isLoggedIn ? <>{children}</> : <Navigate to="/login" />
-  }
-
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/checkin" element={<ProtectedRoute><CheckIn /></ProtectedRoute>} />
-        <Route path="/ebbinghaus" element={<ProtectedRoute><Ebbinghaus /></ProtectedRoute>} />
-        <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
-        <Route path="/reading" element={<ProtectedRoute><Reading /></ProtectedRoute>} />
-        <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/checkin" element={<ProtectedRoute><CheckIn /></ProtectedRoute>} />
+          <Route path="/ebbinghaus" element={<ProtectedRoute><Ebbinghaus /></ProtectedRoute>} />
+          <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+          <Route path="/reading" element={<ProtectedRoute><Reading /></ProtectedRoute>} />
+          <Route path="/listening" element={<ProtectedRoute><Listening /></ProtectedRoute>} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   )
 }
 
