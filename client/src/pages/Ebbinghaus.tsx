@@ -93,6 +93,24 @@ export default function Ebbinghaus() {
     [currentReview]
   )
 
+  const selectedVocabStats = useMemo(
+    () => stats[selectedVocab] || { total: 0, due: 0, highFrequency: 0 },
+    [selectedVocab, stats]
+  )
+
+  const importCoverage = useMemo(() => {
+    const total = selectedVocabInfo?.count || 0
+    const imported = selectedVocabStats.total
+    const ratio = total > 0 ? Math.min(imported / total, 1) : 0
+
+    return {
+      total,
+      imported,
+      ratio,
+      completed: total > 0 && imported >= total
+    }
+  }, [selectedVocabInfo, selectedVocabStats.total])
+
   const parsedWords = useMemo(() => words.map(parseWord), [words])
 
   const visibleWords = useMemo(() => {
@@ -333,6 +351,30 @@ export default function Ebbinghaus() {
                 词库：{selectedVocabInfo?.name || selectedVocab}，已导入 {words.length} 个单词，待复习{' '}
                 {reviewWords.length} 个。
               </p>
+
+              <div className="mt-6 rounded-2xl bg-[#f8f9fa] p-5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-[#2b2d42]">整本导入进度</span>
+                  <span className="text-[#8d99ae]">
+                    {importCoverage.imported} / {importCoverage.total || '--'}
+                  </span>
+                </div>
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] transition-all"
+                    style={{ width: `${importCoverage.ratio * 100}%` }}
+                  />
+                </div>
+                <div className="mt-3 text-sm">
+                  {importCoverage.completed ? (
+                    <span className="font-medium text-[#10b981]">当前词库已经整本导入完成</span>
+                  ) : (
+                    <span className="text-[#8d99ae]">
+                      当前词库还差 {Math.max(importCoverage.total - importCoverage.imported, 0)} 个单词未导入
+                    </span>
+                  )}
+                </div>
+              </div>
 
               <div className="mt-8 rounded-2xl border border-dashed border-[#d9dee8] p-8 text-center">
                 {reviewWords.length > 0 ? (
