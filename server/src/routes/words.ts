@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { Router } from 'express'
 import prisma from '../db.js'
 import { authMiddleware, AuthRequest } from '../middleware/auth.js'
@@ -7,8 +8,26 @@ import { authMiddleware, AuthRequest } from '../middleware/auth.js'
 const router = Router()
 
 const EBBINGHAUS_INTERVALS = [0.5, 1, 6, 24, 48, 96, 168, 336]
-const VOCAB_DIR = path.resolve(process.cwd(), '../data/vocab')
 const MIN_VOCAB_WORDS = 1000
+const CURRENT_FILE = fileURLToPath(import.meta.url)
+const CURRENT_DIR = path.dirname(CURRENT_FILE)
+
+const resolveVocabDir = () => {
+  const candidates = [
+    path.resolve(CURRENT_DIR, '../../../data/vocab'),
+    path.resolve(process.cwd(), 'data/vocab'),
+    path.resolve(process.cwd(), '../data/vocab')
+  ]
+
+  const existingDir = candidates.find((dir) => fs.existsSync(dir))
+  if (!existingDir) {
+    throw new Error(`Vocabulary directory not found. Tried: ${candidates.join(', ')}`)
+  }
+
+  return existingDir
+}
+
+const VOCAB_DIR = resolveVocabDir()
 
 type VocabularyWord = {
   word: string
