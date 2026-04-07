@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import Layout from '../components/Layout'
 import VocabLibraryGrid from '../components/ebbinghaus/VocabLibraryGrid'
 import ReviewPanel from '../components/ebbinghaus/ReviewPanel'
@@ -89,18 +89,30 @@ export default function Ebbinghaus() {
   }
 
   const importWholeVocab = async () => {
-    if (!selectedVocabInfo) return
-    const confirmed = window.confirm(`确认导入整本词库《${selectedVocabInfo.name}》吗？\n\n这次会导入当前词库的全部单词，并保留高频单词标签。`)
+    const targetVocab = selectedVocabInfo || library[0]
+    if (!targetVocab) return
+
+    const confirmed = window.confirm(
+      `确认导入整本词库《${targetVocab.name}》吗？\n\n这次会导入当前词库的全部单词，并保留高频单词标签。`
+    )
     if (!confirmed) return
 
     try {
+      if (targetVocab.code !== selectedVocab) {
+        setSelectedVocab(targetVocab.code)
+      }
+
       setImporting(true)
-      setImportProgress({ current: 0, total: selectedVocabInfo.count || 1 })
-      const res = await api.post(`/words/import-batch?vocab=${selectedVocab}&batchSize=100`)
+      setImportProgress({ current: 0, total: targetVocab.count || 1 })
+
+      const res = await api.post(`/words/import-batch?vocab=${targetVocab.code}&batchSize=100`)
       setImportProgress({ current: res.data.count, total: res.data.total })
+
       window.setTimeout(() => {
-        alert(`整本词库导入完成\n\n词库：${res.data.vocabName}\n新增：${res.data.createdCount}\n更新：${res.data.updatedCount}\n高频单词：${res.data.highFrequencyCount ?? 0}\n失败：${res.data.errorCount}\n总词数：${res.data.total}`)
-        void loadWords(selectedVocab)
+        alert(
+          `整本词库导入完成\n\n词库：${res.data.vocabName}\n新增：${res.data.createdCount}\n更新：${res.data.updatedCount}\n高频单词：${res.data.highFrequencyCount ?? 0}\n失败：${res.data.errorCount}\n总词数：${res.data.total}`
+        )
+        void loadWords(targetVocab.code)
         void loadStats()
         setImportProgress(null)
       }, 300)
@@ -143,18 +155,18 @@ export default function Ebbinghaus() {
       <div className="space-y-8">
         <header className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-md lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-[#2b2d42]">单词记忆</h1>
-            <p className="mt-3 max-w-2xl text-[#8d99ae]">当前页面支持整本词库导入。导入后会保留词条标签，并单独标识高频单词，方便优先记忆。</p>
-            <p className="mt-2 max-w-2xl text-sm text-[#8d99ae]">当前仅展示词量不少于 {MIN_VOCAB_WORDS} 的大词库，避免再出现几十词的小词库。</p>
+            <h1 className="text-4xl font-bold text-[#2b2d42]">鍗曡瘝璁板繂</h1>
+            <p className="mt-3 max-w-2xl text-[#8d99ae]">褰撳墠椤甸潰鏀寔鏁存湰璇嶅簱瀵煎叆銆傚鍏ュ悗浼氫繚鐣欒瘝鏉℃爣绛撅紝骞跺崟鐙爣璇嗛珮棰戝崟璇嶏紝鏂逛究浼樺厛璁板繂銆?/p>
+            <p className="mt-2 max-w-2xl text-sm text-[#8d99ae]">褰撳墠浠呭睍绀鸿瘝閲忎笉灏戜簬 {MIN_VOCAB_WORDS} 鐨勫ぇ璇嶅簱锛岄伩鍏嶅啀鍑虹幇鍑犲崄璇嶇殑灏忚瘝搴撱€?/p>
           </div>
           <button
             onClick={importWholeVocab}
-            disabled={importing || !selectedVocabInfo}
+            disabled={importing || library.length === 0}
             className={`rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition ${
-              importing || !selectedVocabInfo ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:scale-[1.02]'
+              importing || library.length === 0 ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:scale-[1.02]'
             }`}
           >
-            {importing ? '整本词库导入中...' : '导入整本词库'}
+            {importing ? '鏁存湰璇嶅簱瀵煎叆涓?..' : '瀵煎叆鏁存湰璇嶅簱'}
           </button>
         </header>
 
@@ -163,7 +175,7 @@ export default function Ebbinghaus() {
         {importProgress && (
           <section className="rounded-2xl bg-white p-6 shadow-md">
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-semibold text-[#2b2d42]">导入进度</span>
+              <span className="font-semibold text-[#2b2d42]">瀵煎叆杩涘害</span>
               <span className="text-sm text-[#8d99ae]">{importProgress.current} / {importProgress.total}</span>
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-[#e9ecef]">
@@ -196,8 +208,8 @@ export default function Ebbinghaus() {
                 onImageChange={handleImageChange}
               />
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <button onClick={() => submitReview(false)} className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">不认识</button>
-                <button onClick={() => submitReview(true)} className="rounded-2xl bg-gradient-to-r from-[#10b981] to-[#059669] py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">认识</button>
+                <button onClick={() => submitReview(false)} className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">涓嶈璇?/button>
+                <button onClick={() => submitReview(true)} className="rounded-2xl bg-gradient-to-r from-[#10b981] to-[#059669] py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">璁よ瘑</button>
               </div>
             </div>
           </div>
@@ -206,3 +218,4 @@ export default function Ebbinghaus() {
     </Layout>
   )
 }
+
