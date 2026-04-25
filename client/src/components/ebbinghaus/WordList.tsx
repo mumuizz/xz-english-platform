@@ -3,7 +3,7 @@ import type { ParsedWord } from '../../types'
 
 type WordFilter = 'all' | 'high-frequency'
 
-const HIGH_FREQUENCY_KEYWORDS = ['高频', 'high-frequency', 'high_frequency', 'highfreq', '核心']
+const HIGH_FREQUENCY_KEYWORDS = ['高频', '核心', 'high-frequency', 'high_frequency', 'highfreq', '楂橀', '鏍稿績']
 
 const isHighFrequencyWord = (tags: string[]) =>
   tags.some((tag) => {
@@ -55,7 +55,7 @@ export default function WordList({ words, loading, wordFilter, onFilterChange }:
       <div className="max-h-96 space-y-3 overflow-y-auto pr-2">
         {!loading && visibleWords.length === 0 ? (
           <div className="rounded-2xl bg-[#f8f9fa] p-12 text-center text-[#8d99ae]">
-            {words.length === 0 ? '当前词库还没有数据，点击上方"导入整本词库"即可。' : '当前筛选条件下没有单词。'}
+            {words.length === 0 ? '当前词库还没有数据，点击上方“导入整本自考词库”即可。' : '当前筛选条件下没有单词。'}
           </div>
         ) : (
           visibleWords.map((word) => {

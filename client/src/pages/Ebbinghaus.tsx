@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Layout from '../components/Layout'
 import VocabLibraryGrid from '../components/ebbinghaus/VocabLibraryGrid'
 import ReviewPanel from '../components/ebbinghaus/ReviewPanel'
@@ -155,9 +155,13 @@ export default function Ebbinghaus() {
       <div className="space-y-8">
         <header className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-md lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-[#2b2d42]">鍗曡瘝璁板繂</h1>
-            <p className="mt-3 max-w-2xl text-[#8d99ae]">褰撳墠椤甸潰鏀寔鏁存湰璇嶅簱瀵煎叆銆傚鍏ュ悗浼氫繚鐣欒瘝鏉℃爣绛撅紝骞跺崟鐙爣璇嗛珮棰戝崟璇嶏紝鏂逛究浼樺厛璁板繂銆?/p>
-            <p className="mt-2 max-w-2xl text-sm text-[#8d99ae]">褰撳墠浠呭睍绀鸿瘝閲忎笉灏戜簬 {MIN_VOCAB_WORDS} 鐨勫ぇ璇嶅簱锛岄伩鍏嶅啀鍑虹幇鍑犲崄璇嶇殑灏忚瘝搴撱€?/p>
+            <h1 className="text-4xl font-bold text-[#2b2d42]">自考单词</h1>
+            <p className="mt-3 max-w-2xl text-[#8d99ae]">
+              支持整本自考英语词库导入。导入后会保留词条标签，并单独标识高频单词，方便优先记忆。
+            </p>
+            <p className="mt-2 max-w-2xl text-sm text-[#8d99ae]">
+              当前仅展示词量不少于 {MIN_VOCAB_WORDS} 的大词库，避免混入几十词的小词库。
+            </p>
           </div>
           <button
             onClick={importWholeVocab}
@@ -166,7 +170,7 @@ export default function Ebbinghaus() {
               importing || library.length === 0 ? 'cursor-not-allowed bg-gray-400' : 'bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:scale-[1.02]'
             }`}
           >
-            {importing ? '鏁存湰璇嶅簱瀵煎叆涓?..' : '瀵煎叆鏁存湰璇嶅簱'}
+            {importing ? '整本词库导入中...' : '导入整本自考词库'}
           </button>
         </header>
 
@@ -175,11 +179,16 @@ export default function Ebbinghaus() {
         {importProgress && (
           <section className="rounded-2xl bg-white p-6 shadow-md">
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-semibold text-[#2b2d42]">瀵煎叆杩涘害</span>
-              <span className="text-sm text-[#8d99ae]">{importProgress.current} / {importProgress.total}</span>
+              <span className="font-semibold text-[#2b2d42]">导入进度</span>
+              <span className="text-sm text-[#8d99ae]">
+                {importProgress.current} / {importProgress.total}
+              </span>
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-[#e9ecef]">
-              <div className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] transition-all" style={{ width: `${Math.min((importProgress.current / Math.max(importProgress.total, 1)) * 100, 100)}%` }} />
+              <div
+                className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] transition-all"
+                style={{ width: `${Math.min((importProgress.current / Math.max(importProgress.total, 1)) * 100, 100)}%` }}
+              />
             </div>
           </section>
         )}
@@ -198,7 +207,9 @@ export default function Ebbinghaus() {
         {currentReview && parsedCurrentReview && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div className="relative w-full max-w-4xl">
-              <button onClick={() => setCurrentReview(null)} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30">X</button>
+              <button onClick={() => setCurrentReview(null)} className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30">
+                X
+              </button>
               <WordCard
                 word={parsedCurrentReview.word}
                 phonetic={parsedCurrentReview.phonetic || ''}
@@ -208,8 +219,12 @@ export default function Ebbinghaus() {
                 onImageChange={handleImageChange}
               />
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <button onClick={() => submitReview(false)} className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">涓嶈璇?/button>
-                <button onClick={() => submitReview(true)} className="rounded-2xl bg-gradient-to-r from-[#10b981] to-[#059669] py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">璁よ瘑</button>
+                <button onClick={() => submitReview(false)} className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">
+                  不认识
+                </button>
+                <button onClick={() => submitReview(true)} className="rounded-2xl bg-gradient-to-r from-[#10b981] to-[#059669] py-5 font-bold text-white shadow-lg transition hover:scale-[1.02]">
+                  认识
+                </button>
               </div>
             </div>
           </div>
@@ -218,4 +233,3 @@ export default function Ebbinghaus() {
     </Layout>
   )
 }
-

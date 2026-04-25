@@ -40,13 +40,14 @@ type VocabularyWord = {
 
 type VocabularyFile = {
   name?: string
+  code?: string
   description?: string
   words?: VocabularyWord[]
 }
 
 const normalizeWord = (value: string) => value.trim().toLowerCase()
 
-const HIGH_FREQUENCY_TAGS = ['高频', 'high-frequency', 'high_frequency', 'highfreq', '核心']
+const HIGH_FREQUENCY_TAGS = ['高频', '核心', 'high-frequency', 'high_frequency', 'highfreq', '楂橀', '鏍稿績']
 
 const parseTags = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -86,7 +87,12 @@ const loadVocabularyFile = (code: string): VocabularyFile | null => {
     return null
   }
 
-  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as VocabularyFile
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as VocabularyFile
+  } catch (error) {
+    console.warn(`Skipped invalid vocabulary file ${filePath}:`, error)
+    return null
+  }
 }
 
 const getVocabularyWordCount = (data: VocabularyFile | null) =>

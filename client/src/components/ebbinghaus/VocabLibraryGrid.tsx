@@ -40,10 +40,22 @@ export default function VocabLibraryGrid({ library, stats, selectedVocab, onSele
                 )}
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl bg-white p-3"><div className="text-[#8d99ae]">总词数</div><div className="mt-1 font-bold text-[#2b2d42]">{item.count}</div></div>
-                <div className="rounded-xl bg-white p-3"><div className="text-[#8d99ae]">已导入</div><div className="mt-1 font-bold text-[#2b2d42]">{itemStats?.total || 0}</div></div>
-                <div className="rounded-xl bg-white p-3"><div className="text-[#8d99ae]">待复习</div><div className="mt-1 font-bold text-[#ef233c]">{itemStats?.due || 0}</div></div>
-                <div className="rounded-xl bg-white p-3"><div className="text-[#8d99ae]">高频单词</div><div className="mt-1 font-bold text-[#7c3aed]">{itemStats?.highFrequency || 0}</div></div>
+                <div className="rounded-xl bg-white p-3">
+                  <div className="text-[#8d99ae]">总词数</div>
+                  <div className="mt-1 font-bold text-[#2b2d42]">{item.count}</div>
+                </div>
+                <div className="rounded-xl bg-white p-3">
+                  <div className="text-[#8d99ae]">已导入</div>
+                  <div className="mt-1 font-bold text-[#2b2d42]">{itemStats?.total || 0}</div>
+                </div>
+                <div className="rounded-xl bg-white p-3">
+                  <div className="text-[#8d99ae]">待复习</div>
+                  <div className="mt-1 font-bold text-[#ef233c]">{itemStats?.due || 0}</div>
+                </div>
+                <div className="rounded-xl bg-white p-3">
+                  <div className="text-[#8d99ae]">高频单词</div>
+                  <div className="mt-1 font-bold text-[#7c3aed]">{itemStats?.highFrequency || 0}</div>
+                </div>
               </div>
             </button>
           )

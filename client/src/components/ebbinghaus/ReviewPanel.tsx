@@ -35,7 +35,9 @@ export default function ReviewPanel({ words, reviewWords, selectedVocabInfo, sel
         <div className="mt-6 rounded-2xl bg-[#f8f9fa] p-5">
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-[#2b2d42]">整本导入进度</span>
-            <span className="text-[#8d99ae]">{importCoverageImported} / {importCoverageTotal || '--'}</span>
+            <span className="text-[#8d99ae]">
+              {importCoverageImported} / {importCoverageTotal || '--'}
+            </span>
           </div>
           <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
             <div className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] transition-all" style={{ width: `${importCoverageRatio * 100}%` }} />
@@ -54,8 +56,12 @@ export default function ReviewPanel({ words, reviewWords, selectedVocabInfo, sel
             <>
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#ef233c] text-3xl font-bold text-white">待</div>
               <div className="text-3xl font-bold text-[#2b2d42]">目前有 {reviewWords.length} 个单词待复习</div>
-              <p className="mx-auto mt-3 max-w-md text-[#8d99ae]">建议优先完成到期复习，再继续导入新词，避免词量持续增加但复习跟不上。</p>
-              <button onClick={onStartReview} className="mt-6 rounded-2xl bg-gradient-to-r from-[#ef233c] to-[#d91e36] px-8 py-4 font-bold text-white shadow-lg transition hover:scale-[1.02]">开始复习</button>
+              <p className="mx-auto mt-3 max-w-md text-[#8d99ae]">
+                建议优先完成到期复习，再继续导入新词，避免词量持续增加但复习跟不上。
+              </p>
+              <button onClick={onStartReview} className="mt-6 rounded-2xl bg-gradient-to-r from-[#ef233c] to-[#d91e36] px-8 py-4 font-bold text-white shadow-lg transition hover:scale-[1.02]">
+                开始复习
+              </button>
             </>
           ) : (
             <>
@@ -73,7 +79,9 @@ export default function ReviewPanel({ words, reviewWords, selectedVocabInfo, sel
         <div className="mt-6 grid grid-cols-2 gap-3">
           {REVIEW_STAGES.map((stage) => (
             <div key={stage.time} className="rounded-2xl border p-4" style={{ borderColor: `${stage.color}33`, background: `${stage.color}10` }}>
-              <div className="font-bold" style={{ color: stage.color }}>{stage.time}</div>
+              <div className="font-bold" style={{ color: stage.color }}>
+                {stage.time}
+              </div>
               <div className="mt-1 text-sm text-[#8d99ae]">{stage.label}</div>
             </div>
           ))}
